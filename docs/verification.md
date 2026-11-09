@@ -1,4 +1,7 @@
-# Verification plan (on your machine)
+# Verification plan
+
+On Mufasa every step below has a job script: `docs/mufasa.md` section 5 is this plan as `sbatch` commands
+(steps 1-2: `setup_env.sh` submits `verify_env.sbatch`, which runs `check` and `pytest`).
 
 Everything below was verified here on synthetic data with exact ground truth (see `experiment_log.md`). What
 could NOT be run here is every real network (no GPU, no torch, no weights) and the two GUIs. This is the order

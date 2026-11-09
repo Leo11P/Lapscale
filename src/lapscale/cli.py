@@ -305,7 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
     sn = sts.add_parser("surgenet", help="SurgeNetXL CaFormer-S18 + FPN")
     sn.add_argument("--bench", nargs="+", required=True, help="benchmark folder(s) with masks_gt")
     sn.add_argument("--out", required=True)
-    sn.add_argument("--surgenet-repo", required=True)
+    sn.add_argument("--surgenet-repo", default=None, help="default: $LAPSCALE_SURGENET_REPO")
     sn.add_argument("--pretrained", required=True, help="SurgeNetXL teacher checkpoint (.pth)")
     sn.add_argument("--epochs", type=int, default=30)
     sn.add_argument("--batch", type=int, default=8)

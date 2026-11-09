@@ -41,7 +41,8 @@ robotic prostatectomy).
 - NOT run here (no GPU, torch or weights): every real network backend (MoGe, DA3, SAM 3, YOLO, SurgeNetXL) and
   the training code; the two annotation GUIs. `lapscale check` and `docs/verification.md` are the plan to
   verify them on Leonardo's machine.
-- Next: Leonardo runs `docs/verification.md`; then decisions on the depth network (depthbench), the
+- Mufasa setup done (`setup_env.sh`, `slurm/`), job scripts tested locally with stand-in environments.
+- Next: Leonardo runs `docs/mufasa.md` section 5; then decisions on the depth network (depthbench), the
   segmentation network (segbench), and scale-only vs affine (eval).
 
 ## Decisions already taken (do not reopen without a reason)
@@ -98,6 +99,14 @@ at 10 deg).
 - Heavy dependencies (torch, MoGe, SAM) only as optional extras, imported lazily.
 - Never commit videos, weights or data (`.gitignore` excludes them). Clinical data: nothing identifiable.
 - Language: everything in the repository (code, comments, docstrings, docs) in English.
+
+## Mufasa (where everything runs)
+
+`docs/mufasa.md`. uv environments built by `setup_env.sh` on the login node (`.venv` main: MoGe, YOLO,
+SurgeNetXL; `.venv-sam3`; `.venv-da3`; pins in `requirements/<env>.txt`); jobs in `slurm/` (`pipeline`,
+`depthbench`, `segbench`, `segtrain`, `stream`, `verify_env`), all sourcing `slurm/env.sh` (paths on
+`/home/shared/nearmrs/$USER/lapscale`, caches on the shared storage, offline weights). Never import torch on
+the login node. GUIs (annotation) run on the PC with the full OpenCV build.
 
 ## Commands
 

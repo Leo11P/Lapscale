@@ -26,6 +26,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from ..io.gui import require_gui
 from .data import load_manifest
 
 MASK_DIR = "masks_gt"
@@ -200,6 +201,7 @@ def annotate_masks(bench: str | Path, proposer=None, display_scale: float = 1.0,
         print("nothing to annotate (use --all to revisit)")
         return
     win = "lapscale segbench annotate-masks"
+    require_gui()
     cv2.namedWindow(win, cv2.WINDOW_AUTOSIZE)
     k = 0
     while 0 <= k < len(order):

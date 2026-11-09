@@ -1,6 +1,10 @@
 # Installation and first check
 
-lapscale itself needs only numpy, OpenCV and PyYAML. Each network is an optional backend with its own
+On Mufasa use `docs/mufasa.md` instead (environments built by `setup_env.sh`). This page is for a PC or
+workstation.
+
+lapscale itself needs only numpy, OpenCV (headless) and PyYAML. The annotation GUIs need the full OpenCV build:
+`uv pip uninstall opencv-python-headless && uv pip install opencv-python` (never both: same `cv2` module). Each network is an optional backend with its own
 requirements; install what you use, then run `lapscale check` to see what actually works on this machine.
 
 ```bash

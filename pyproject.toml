@@ -10,7 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "opencv-python>=4.8",   # cv2.aruco (ChArUco) is in the main module since 4.7
+    # headless: the cluster nodes have no libGL. The annotation GUIs need the full build: on your PC run
+    # `uv pip uninstall opencv-python-headless && uv pip install opencv-python` (never both: same cv2 module)
+    "opencv-python-headless>=4.8",   # cv2.aruco (ChArUco) is in the main module since 4.7
     "pyyaml>=6.0",
 ]
 
@@ -23,6 +25,7 @@ moge = [
 # SAM 3 and Depth Anything 3 are installed from their repositories (see docs/install.md)
 yolo = ["ultralytics>=8.3"]
 surgenet = ["torch>=2.1", "timm==1.0.13"]       # + a clone of github.com/TimJaspers0801/SurgeNet
+# On Mufasa the environments are built by setup_env.sh (docs/mufasa.md), not with these extras.
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]

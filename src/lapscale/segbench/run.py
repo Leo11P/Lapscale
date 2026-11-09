@@ -190,9 +190,10 @@ def format_summary(s: dict) -> str:
 
 def compare(bench: str | Path, log=print) -> list[dict]:
     """Table of all results/<name>/summary.json, best depth error first."""
-    rows = []
-    for p in sorted((Path(bench) / "results").glob("*/summary.json")):
-        rows.append(json.loads(p.read_text()))
+    rows = [json.loads(p.read_text()) for p in sorted((Path(bench) / "results").glob("*/summary.json"))]
+    if not rows:
+        log(f"no results in {Path(bench) / 'results'} yet")
+        return []
     rows.sort(key=lambda s: (s.get("depth_err_pct_p90_abs") is None, s.get("depth_err_pct_p90_abs", 0)))
     cols = [("name", "backend"), ("found_rate", "found"), ("depth_err_pct_median_abs", "|depth err| med %"),
             ("depth_err_pct_p90_abs", "p90 %"), ("bias_px_median", "bias px"), ("bias_px_spread_mad", "bias spread"),

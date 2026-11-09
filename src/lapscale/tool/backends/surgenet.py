@@ -2,10 +2,11 @@
 with ``lapscale segtrain surgenet``.
 
 The architecture code is the authors' (Apache 2.0): clone https://github.com/TimJaspers0801/SurgeNet and
-pass the folder as ``repo`` (or put it on PYTHONPATH). Needs torch and timm (the authors pin timm 1.0.13).
+pass the folder as ``repo`` or set ``LAPSCALE_SURGENET_REPO``. Needs torch and timm (the authors pin timm 1.0.13).
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -19,6 +20,7 @@ STD = np.array([0.229, 0.224, 0.225], np.float32)
 
 
 def import_metaformer(repo: str | Path | None):
+    repo = repo or os.environ.get("LAPSCALE_SURGENET_REPO")      # set by slurm/env.sh on Mufasa
     if repo is not None:
         sys.path.insert(0, str(Path(repo).resolve()))
     try:

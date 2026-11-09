@@ -91,7 +91,12 @@ def format_summary(s: dict) -> str:
 
 
 def compare_depth(bench: str | Path, log=print) -> list[dict]:
-    rows = [json.loads(p.read_text()) for p in sorted((Path(bench) / "results").glob("*/summary.json"))]
+    res_dir = Path(bench) / "results"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    rows = [json.loads(p.read_text()) for p in sorted(res_dir.glob("*/summary.json"))]
+    if not rows:
+        log(f"no results in {res_dir} yet")
+        return []
     rows.sort(key=lambda s: s.get("scale", {}).get("abs_rel", np.inf))
     cols = ["backend", "AbsRel scale", "d<1.05 scale", "AbsRel affine", "AbsRel native", "native GT/pred", "ms/frame"]
     table = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
@@ -101,6 +106,6 @@ def compare_depth(bench: str | Path, log=print) -> list[dict]:
             s["name"], sc.get("abs_rel", ""), sc.get("delta_1_05", ""), af.get("abs_rel", ""), na.get("abs_rel", ""),
             na.get("median_ratio", ""), s.get("latency_ms_median", "")]) + " |")
     text = "\n".join(table)
-    (Path(bench) / "results" / "comparison.md").write_text(text + "\n")
+    (res_dir / "comparison.md").write_text(text + "\n")
     log(text)
     return rows

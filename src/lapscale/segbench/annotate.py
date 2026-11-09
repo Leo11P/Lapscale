@@ -17,6 +17,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from ..io.gui import require_gui
 from .data import FrameAnnotation, GTInstrument, load_annotations, load_manifest, save_annotations
 
 DIAMETER_KEYS = {ord("5"): 5.0, ord("8"): 8.0, ord("0"): 10.0}
@@ -153,6 +154,7 @@ def annotate(bench: str | Path, display_scale: float = 1.0, default_diameter: fl
         print("nothing to annotate (use --all to revisit annotated frames)")
         return
     win = "lapscale segbench annotate"
+    require_gui()
     cv2.namedWindow(win, cv2.WINDOW_AUTOSIZE)
     mag = Magnifier()
     k = 0

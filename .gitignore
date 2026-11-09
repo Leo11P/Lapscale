@@ -18,3 +18,9 @@ cache/
 *.ckpt
 # camera files are small and versioned on purpose, except scratch ones
 configs/camera/scratch_*.yaml
+# cluster
+.venv*/
+logs/*
+!logs/.gitkeep
+third_party/
+weights/

@@ -20,7 +20,8 @@ every choice.
 | backends on this machine | `lapscale check` | loads each network, runs it, reports OK / FAIL |
 
 Everything is verified on synthetic data with exact ground truth (`pytest`); the real networks run only where
-they are installed. Start with `docs/install.md`, then follow `docs/verification.md`.
+they are installed. **On Mufasa: `docs/mufasa.md`** (uv environments, SLURM jobs). Elsewhere: `docs/install.md`.
+Then follow `docs/verification.md`.
 
 ## Quick start
 
@@ -63,6 +64,10 @@ src/lapscale/
   eval/             whole pipeline against ground truth
   check.py          backends on this machine
 tests/              synthetic scenes with exact ground truth (calibration, shafts, laparoscopic video, stereo)
-docs/               install, verification, architecture, calibration, segbench, depthbench, decisions,
-                    outputs, roadmap, experiment log
+docs/               mufasa, install, verification, architecture, calibration, segbench, depthbench,
+                    decisions, outputs, roadmap, experiment log
+setup_env.sh        Mufasa: builds the uv environments on the login node
+slurm/              Mufasa: env.sh (paths, caches), verify_env, pipeline, depthbench, segbench, segtrain, stream,
+                    download_weights.sh
+requirements/       Mufasa: exact pins per environment, written by the first setup_env.sh
 ```

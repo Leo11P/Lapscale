@@ -107,3 +107,19 @@ Each entry: what, why, what would change it.
   selection on validation IoU, validation split BY VIDEO (also in `export-yolo`).
 * **torch is never imported by the core**: all networks are optional backends; `lapscale check` verifies them on
   the target machine.
+
+## Mufasa
+* **uv environments, as in the other projects**, not containers: built on the login node, used by jobs through
+  their interpreter. **Three environments** because the stacks conflict: MoGe (numpy >= 2) vs SAM 3 (numpy < 2,
+  timm >= 1.0.17) vs DA3 (numpy < 2, xformers) vs SurgeNet (timm == 1.0.13, fits in main with MoGe). The
+  stages exchange files, so one job runs each stage with the interpreter of its backend.
+* **One job per pipeline run** (not one per stage): the cluster allows one submitted job per QoS, and the
+  stages are sequential anyway. Benchmarks loop over backends inside one job; defaults spread the scripts over
+  different QoS so they can be queued together.
+* **Pins written by the first build** (`requirements/<env>.txt`, git dependencies with their commit), then reused:
+  versions cannot be resolved here (no access to the PyTorch index), and the first successful build on the
+  cluster is the reference.
+* **OpenCV headless everywhere** on the cluster (no libGL on the nodes); the GUIs refuse to start on a headless
+  build with an explicit message and run on the PC.
+* **Weights pre-downloaded on the login node, jobs offline** (`HF_HUB_OFFLINE=1`): a missing weight fails at once
+  instead of depending on internet access from the compute nodes.
