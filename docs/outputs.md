@@ -22,3 +22,16 @@
   optical-disc detection diagnostics, target and configuration.
 * `coverage.png`: all corners on one frame (green training, orange held-out, red rejected) and the disc.
 * `undistort_check.png`: original | undistorted with a straight grid.
+
+## Segmentation benchmark (`<bench>/`)
+* `manifest.json`: `frames[]` with `id`, `video`, `index`, `file`, `size`.
+* `annotations.json`: `frames.<id>.status` (`todo` / `ok` / `skip`), `frames.<id>.instruments[]` with
+  `edge_a`, `edge_b` (lists of [x, y] raw pixels, >= 2 each), `diameter_mm`, `note`.
+* `results/<name>/per_instrument.csv`: `frame`, `instrument`, `found`, `reason`, `n_instances`,
+  `latency_ms`, `match_cost_px`, `bias_px`, `offset_a_px`, `offset_b_px`, `offset_sd_px`,
+  `max_abs_offset_px`, `angle_err_deg`, `width_gt_px`, `width_err_px`, `width_err_pct`, `depth_err_pct`,
+  `depth_err_pct_bias_corrected`. Offsets in undistorted pixels, positive outward.
+* `results/<name>/summary.json`: `found_rate`, `depth_err_pct_median_abs`, `depth_err_pct_p90_abs`,
+  `depth_err_pct_median_signed`, `bias_px_median`, `bias_px_spread_mad`, `offset_sd_px_median`,
+  `angle_err_deg_median`, `depth_err_pct_bias_corrected_*`, `latency_ms_median`, `not_found_reasons`.
+* `results/<name>/overlays/<frame>.png`; `results/comparison.md`.

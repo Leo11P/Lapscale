@@ -9,7 +9,8 @@ Geometric Modeling* (MonoEndoDepth), with MoGe in place of Monodepth2.
 |---|---|---|
 | 1 camera intrinsics | `lapscale calib …` | **done** |
 | 2 depth (MoGe) | `lapscale depth` | backend wrapper only |
-| 3 instrument geometry | `lapscale tool` | geometry + uncertainty done (Python API); segmentation planned |
+| 3 instrument geometry | `lapscale tool` | geometry, uncertainty, mask -> edges done (Python API) |
+| 3 segmentation benchmark | `lapscale segbench …` | **done**; SAM 3 / YOLO / external masks |
 | 4 scale recovery | `lapscale scale` | planned |
 | all, offline / real time | `lapscale run` | planned |
 | evaluation vs stereo GT | `lapscale eval` | planned |
@@ -74,6 +75,17 @@ unc = shaft_uncertainty(edge_a_px, edge_b_px, cam, 5.0, point_sd_px=0.5, bias_sd
 unc.rel_sd_total_pct, unc.bias_sensitivity_pct_per_px
 ```
 
+## Choosing the segmentation network
+
+```bash
+lapscale segbench sample   --video v1.mp4 v2.mp4 --bench bench/ --n-per-video 25
+lapscale segbench annotate --bench bench/ --diameter-mm 5          # click the two edges of each shaft
+lapscale segbench run      --bench bench/ --camera configs/camera/lap.yaml --backend sam3
+lapscale segbench compare  --bench bench/
+```
+
+Protocol, metrics and the proposed decision rule: `docs/segbench.md`.
+
 ## Layout
 
 ```
@@ -83,7 +95,8 @@ src/lapscale/
   io/               frame sources (video / image folder), run cache
   calib/            targets, optical disc, calibration, import, MoGe fallback, report
   depth/            DepthBackend protocol, MoGe v2/v3
-  tool/             shaft geometry (two edges + diameter -> metric depth) and its uncertainty
+  tool/             shaft geometry and uncertainty, mask -> shaft edges, segmentation backends
+  segbench/         benchmark of segmentation by shaft edge accuracy (docs/segbench.md)
   scale/ pipeline/ eval/ viz/     next stages
 tests/              synthetic tests (rendered boards with known intrinsics)
 docs/               decisions, outputs, roadmap, experiment log

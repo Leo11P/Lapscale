@@ -53,3 +53,19 @@ Each entry: what, why, what would change it.
   not. Reported separately, plus the deterministic sensitivity to a 1 px outward shift of both edges
   (~ -2/width: -2% for a 100 px wide shaft, -7% for a 28 px wide one). This sensitivity is the
   acceptance criterion for the segmentation network.
+
+## Stage 3: segmentation and edges
+* **Benchmark on shaft edges, not masks.** Ground truth = points clicked on the two edges of each measurable
+  shaft (faster than painting masks, and exactly what the scale depends on). Metrics in undistorted pixels:
+  outward offset of the predicted edges along the annotated ones, width error, and the depth error through
+  the full cylinder geometry (independent of the diameter).
+* **Edges from soft masks with sub-pixel refinement** (0.5 crossing along the local normal). Measured on
+  rendered instruments: offset ~0.01 px on soft masks, ~0.04 px on binary masks; without it OpenCV
+  contours bias each edge inward by 0.5 px.
+* **RANSAC in undistorted space, edges as contiguous runs**: jaws, tip and the rim of the field drop out
+  without part labels; an edge must enclose the instrument and run side by side with the other.
+* **Bias vs spread reported separately**, with a leave-one-out bias-corrected depth error: a stable bias
+  of a model can be calibrated, a spread cannot.
+* **SAM 3 zero-shot first** (no training data needed); `masks` backend so any external model can be
+  benchmarked; `yolo` wrapper for a fine-tuned YOLO-seg. A SurgeNetXL-based network is implemented only
+  if the benchmark shows that zero-shot is not enough.

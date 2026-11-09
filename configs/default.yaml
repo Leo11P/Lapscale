@@ -27,6 +27,11 @@ depth:
 tool:
   backend: sam3
   instruments: configs/instruments.yaml
+  edges:                       # used by `segbench run --config`; all fields: EdgeConfig in tool/edges.py
+    ransac-tol-px: 1.5
+    min-span-px: 50
+    max-edge-angle-deg: 25
+    max-rms-px: 0.8
 
 scale:
   variants: [scale_only, affine]

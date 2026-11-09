@@ -96,6 +96,33 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--out", required=True)
     t.add_argument("--px-per-square", type=int, default=200)
 
+    # ------------------------------------------------------------------ segmentation benchmark
+    g = sub.add_parser("segbench", help="benchmark instrument segmentation by shaft edge accuracy")
+    gs = g.add_subparsers(dest="action", required=True)
+    gp = gs.add_parser("sample", help="sample frames from videos into a benchmark folder")
+    gp.add_argument("--video", nargs="+", required=True)
+    gp.add_argument("--bench", required=True)
+    gp.add_argument("--n-per-video", type=int, default=25)
+    ga = gs.add_parser("annotate", help="click the two edges of each measurable shaft (GUI)")
+    ga.add_argument("--bench", required=True)
+    ga.add_argument("--display-scale", type=float, default=1.0)
+    ga.add_argument("--diameter-mm", type=float, default=None, help="default diameter of the annotated shafts")
+    ga.add_argument("--all", action="store_true", help="revisit frames already annotated")
+    gr = gs.add_parser("run", help="evaluate one segmentation backend")
+    gr.add_argument("--bench", required=True)
+    gr.add_argument("--camera", required=True, help="camera YAML of the videos (edges are compared undistorted)")
+    gr.add_argument("--backend", choices=["sam3", "yolo", "masks"], required=True)
+    gr.add_argument("--name", default=None, help="results folder name (default: backend name)")
+    gr.add_argument("--prompt", nargs="+", default=["surgical instrument"], help="sam3 text prompt(s)")
+    gr.add_argument("--confidence", type=float, default=None)
+    gr.add_argument("--checkpoint", default=None, help="sam3 local checkpoint (default: Hugging Face)")
+    gr.add_argument("--weights", default=None, help="yolo weights")
+    gr.add_argument("--masks-dir", default=None, help="masks backend: folder of precomputed masks")
+    gr.add_argument("--device", default="cuda")
+    gr.add_argument("--no-overlays", action="store_true")
+    gc = gs.add_parser("compare", help="table of all evaluated backends")
+    gc.add_argument("--bench", required=True)
+
     # ------------------------------------------------------------------ later stages
     for name, text in [("depth", "stage 2: MoGe depth"), ("tool", "stage 3: instrument geometry"),
                        ("scale", "stage 4: scale recovery"), ("run", "all stages on a video (offline / stream)"),
@@ -115,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
             subp.set_defaults(**section(cfg, "calib", name))
     a = parser.parse_args(argv)
 
+    if a.stage == "segbench":
+        return _segbench(a, cfg)
     if a.stage != "calib":
         print(f"'{a.stage}' is not implemented yet (see docs/roadmap.md)", file=sys.stderr)
         return 2
@@ -145,6 +174,37 @@ def main(argv: list[str] | None = None) -> int:
         dpi_note = (f"print so that one square measures exactly {spec.square_mm} mm, then MEASURE it: "
                     "the measured value is what goes in --square-mm")
         print(f"saved {a.out} ({img.shape[1]}x{img.shape[0]} px). {dpi_note}")
+    return 0
+
+
+def _segbench(a, cfg: dict) -> int:
+    from . import segbench as sb
+    if a.action == "sample":
+        sb.sample_frames(a.video, a.bench, a.n_per_video)
+    elif a.action == "annotate":
+        from .segbench.annotate import annotate
+        annotate(a.bench, a.display_scale, a.diameter_mm, only_todo=not a.all)
+    elif a.action == "run":
+        from .camera import Camera
+        from .tool.backends import make_seg_backend
+        if a.backend == "sam3":
+            kw = dict(prompts=a.prompt, checkpoint=a.checkpoint, device=a.device)
+        elif a.backend == "yolo":
+            if not a.weights:
+                sys.exit("--weights is required for the yolo backend")
+            kw = dict(weights=a.weights, device=a.device)
+        else:
+            if not a.masks_dir:
+                sys.exit("--masks-dir is required for the masks backend")
+            kw = dict(masks_dir=a.masks_dir)
+        if a.confidence is not None and a.backend != "masks":
+            kw["confidence"] = a.confidence
+        from .tool.edges import EdgeConfig
+        edge_cfg = EdgeConfig(**section(cfg, "tool", "edges"))       # --config tool.edges, else defaults
+        sb.run_benchmark(a.bench, make_seg_backend(a.backend, **kw), Camera.load(a.camera), a.name,
+                         edge_cfg=edge_cfg, overlays=not a.no_overlays)
+    elif a.action == "compare":
+        sb.compare(a.bench)
     return 0
 
 

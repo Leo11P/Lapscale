@@ -36,10 +36,11 @@ robotic prostatectomy).
 ## Status
 
 - Done: skeleton; `camera.py`; stage 1 `calib` (board / import / MoGe fallback); MoGe wrapper in
-  `depth/` (not run here: no torch/weights); `tool/geometry.py` and `tool/uncertainty.py` (Python API).
-  31 synthetic tests.
-- Not done: commands `lapscale depth|tool|scale|run|eval|viz`; segmentation; edges from masks.
-- Next: see `docs/roadmap.md` (stage 2 depth with cache, then segmentation and edges).
+  `depth/` (not run here: no torch/weights); `tool/geometry.py`, `tool/uncertainty.py`, `tool/edges.py`
+  (mask -> sub-pixel shaft edges); segmentation backends `sam3` / `yolo` / `masks` (sam3 and yolo not run
+  here: no GPU/weights); `segbench` (sample, annotate GUI, run, compare). 44 synthetic tests.
+- Not done: commands `lapscale depth|tool|scale|run|eval|viz`; the benchmark on real IEO frames.
+- Next: Leonardo annotates 30-50 IEO frames and runs SAM 3 (`docs/segbench.md`); then stage 2 depth.
 
 ## Decisions already taken (do not reopen without a reason)
 
@@ -54,10 +55,10 @@ robotic prostatectomy).
   > 3x less stable for shafts tilted towards the camera).
 - **Edge bias is the critical error**: +1 px outward on both edges changes the depth by ~ -2/width
   (-2% at 100 px width, -7% at 28 px). It is systematic for a given segmentation model.
-- Instrument segmentation: NOT chosen yet. Candidates: SAM 3, semantic network with a surgical backbone
-  (e.g. SurgeNetXL) + fine-tuning, YOLO-seg. Criterion = **shaft edge accuracy** (bias and spread in px on
-  ~30-50 hand-annotated frames), NOT Dice. Shaft and jaws separated **geometrically** (RANSAC on the
-  contour), not with annotated part classes.
+- Instrument segmentation: NOT chosen yet; decided by `segbench` (`docs/segbench.md`). Order: SAM 3
+  zero-shot first; a SurgeNetXL-based network or a fine-tuned YOLO-seg only if needed. Criterion =
+  **shaft edge accuracy / resulting depth error**, NOT Dice. Shaft and jaws separated **geometrically**
+  (RANSAC on the contour), not with annotated part classes.
 - The near-horizontal-edge problem was **stereo only** (baseline); it does not exist in monocular.
 - No MoGe fine-tuning until the evaluation on stereo data shows it is needed.
 - Depth is not needed every frame: segmentation every frame, depth at 5-10 Hz in parallel (real time).

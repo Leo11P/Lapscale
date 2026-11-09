@@ -20,6 +20,8 @@ moge = [
     "torch>=2.1",
     "moge @ git+https://github.com/microsoft/MoGe.git",
 ]
+# SAM 3 is installed from its repository (Python >= 3.12, gated checkpoints): see tool/backends/sam3.py
+yolo = ["ultralytics>=8.3"]
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]
