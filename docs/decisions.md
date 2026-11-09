@@ -32,3 +32,24 @@ Each entry: what, why, what would change it.
   frame; stages working on undistorted images must remap it.
 * **MoGe fallback** kept but marked: no distortion, principal point at the centre, frame-to-frame spread
   of f reported as a lower bound of the scale error.
+
+## Stage 3: shaft geometry
+* **Plane formulation of the cylinder** (equivalent to the Pluecker form of Wei et al. / Doignon & de Mathelin):
+  each edge back-projects to a plane through the camera centre; the axis direction is the cross product of
+  the two plane normals; the axis lies at distance r from both planes inside the wedge. Closed form, no
+  optimisation, exact on noise-free data (tests: relative error < 1e-6).
+* **Edges are fitted as straight lines AFTER undistortion** (points undistorted first, then total least
+  squares). In the raw image the edges are curves. Undistortion uses 50 iterations: OpenCV's default leaves
+  ~1e-5 normalised error with strong barrel distortion.
+* **The quantity used downstream is the depth of the VISIBLE shaft** (surface depth along the rays of shaft
+  pixels; summary value `depth_mid` at the middle of the edges), not the distance to the infinite axis.
+  Measured on synthetic shafts tilted > 45 deg towards the camera: the axis distance is > 3x less stable,
+  because its closest point is an extrapolation outside the visible segment. The paper uses the axis
+  pose; we keep it only as a diagnostic.
+* **Per-pixel depth by ray-cylinder intersection** (front surface) over the whole shaft mask, instead of
+  sampling only along the projected axis as in the paper: more points for the scale fit, same model.
+* **Uncertainty split into random and systematic parts.** Random edge noise averages out over frames and
+  contour points; an edge bias of the segmentation (mask too wide/narrow) and the focal-length error do
+  not. Reported separately, plus the deterministic sensitivity to a 1 px outward shift of both edges
+  (~ -2/width: -2% for a 100 px wide shaft, -7% for a 28 px wide one). This sensitivity is the
+  acceptance criterion for the segmentation network.

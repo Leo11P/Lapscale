@@ -9,7 +9,7 @@ Geometric Modeling* (MonoEndoDepth), with MoGe in place of Monodepth2.
 |---|---|---|
 | 1 camera intrinsics | `lapscale calib …` | **done** |
 | 2 depth (MoGe) | `lapscale depth` | backend wrapper only |
-| 3 instrument geometry | `lapscale tool` | planned |
+| 3 instrument geometry | `lapscale tool` | geometry + uncertainty done (Python API); segmentation planned |
 | 4 scale recovery | `lapscale scale` | planned |
 | all, offline / real time | `lapscale run` | planned |
 | evaluation vs stereo GT | `lapscale eval` | planned |
@@ -59,6 +59,21 @@ lapscale calib moge --video surgery.mp4 --out configs/camera/x_moge.yaml
 
 Every later stage takes `--camera PATH` or `--camera moge`.
 
+## Stage 3 (geometry part): metric depth of the shaft
+
+```python
+from lapscale.camera import Camera
+from lapscale.tool import shaft_from_edges, shaft_uncertainty
+
+cam = Camera.load("configs/camera/lap_ieo.yaml")
+est = shaft_from_edges(edge_a_px, edge_b_px, cam, diameter_mm=5.0)   # points (>= 2 each), raw pixels
+est.depth_mid                    # mm, shaft surface at the middle of the edges
+est.depth_at(xy_normalised)      # mm, any shaft pixels (NaN where the ray misses)
+unc = shaft_uncertainty(edge_a_px, edge_b_px, cam, 5.0, point_sd_px=0.5, bias_sd_px=1.0,
+                        focal_rel_sd=0.003)
+unc.rel_sd_total_pct, unc.bias_sensitivity_pct_per_px
+```
+
 ## Layout
 
 ```
@@ -68,7 +83,8 @@ src/lapscale/
   io/               frame sources (video / image folder), run cache
   calib/            targets, optical disc, calibration, import, MoGe fallback, report
   depth/            DepthBackend protocol, MoGe v2/v3
-  tool/ scale/ pipeline/ eval/ viz/     next stages
+  tool/             shaft geometry (two edges + diameter -> metric depth) and its uncertainty
+  scale/ pipeline/ eval/ viz/     next stages
 tests/              synthetic tests (rendered boards with known intrinsics)
 docs/               decisions, outputs, roadmap, experiment log
 scripts/slurm/      cluster jobs (MoGe-3 offline)

@@ -1,8 +1,8 @@
 # Roadmap
 
 1. ~~Skeleton, camera model, stage 1 (calibration / import / MoGe fallback), synthetic tests~~
-2. `tool/geometry.py`: cylinder from two edges + known diameter (port of `phase0_check.shaft_diameter`,
-   inverted), Monte Carlo uncertainty, synthetic tests. No network needed.
+2. ~~`tool/geometry.py` + `tool/uncertainty.py`: cylinder from two edges + known diameter, per-pixel depth,
+   Monte Carlo uncertainty (random / systematic), synthetic tests~~
 3. Stage 2 `depth`: run cache, MoGe-2 (any OS) and MoGe-3 (Linux/WSL2, Mufasa job); undistortion and
    remapped optical-disc mask before inference; `lapscale bench` for timings on the target GPU.
 4. Stage 3 `tool`: SegBackend + SAM 3 zero-shot; edges (RANSAC) and tip; quality gate; edge-accuracy

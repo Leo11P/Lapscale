@@ -1,109 +1,111 @@
 # CLAUDE.md — lapscale
 
-Leggi questo file per intero a inizio sessione, poi `docs/roadmap.md` e `docs/decisions.md`.
+Project context for any assistant session. Read it fully first, then `docs/roadmap.md` and
+`docs/decisions.md`.
 
-## Cosa è questo repo
+## What this repository is
 
-Profondità metrica per **laparoscopia monoculare**, solo da immagine. Lo shaft dello strumento (cilindro
-di diametro noto) fa da righello e trasforma la depth di una rete monoculare (MoGe) in millimetri.
-Metodo: Wei et al., MICCAI 2024, *Enhanced Scale-aware Depth Estimation for Monocular Endoscopic Scenes
-with Geometric Modeling* (MonoEndoDepth, github med-air/MonoEndoDepth), con MoGe al posto di Monodepth2.
+Metric depth for **monocular laparoscopy**, from the image only. The instrument shaft (a cylinder of known
+diameter) is the ruler that turns the depth of a monocular network (MoGe) into millimetres.
+Method: Wei et al., MICCAI 2024, *Enhanced Scale-aware Depth Estimation for Monocular Endoscopic Scenes with
+Geometric Modeling* (MonoEndoDepth, github med-air/MonoEndoDepth), with MoGe in place of Monodepth2.
 
-## Contesto più ampio (non è codice di questo repo)
+## Wider context (not code in this repository)
 
-Dottorato di Leonardo Passoni (PoliMi, NEARLab, supervisore Prof. De Momi) su un sistema di realtà
-aumentata per la linfadenectomia nell'esofagectomia Ivor Lewis, con l'IEO. Si proietta sulla vista
-endoscopica la posizione dei linfonodi segnata sulla TAC preoperatoria. Il lavoro adatta LyNAR
-(Cruciani et al., RA-L 2026, prostatectomia robotica).
+PhD project of Leonardo Passoni (Politecnico di Milano, NEARLab, supervisor Prof. De Momi): augmented
+reality for lymphadenectomy during Ivor Lewis esophagectomy, with IEO. Lymph nodes marked on the
+preoperative CT are projected onto the endoscopic view. The work adapts LyNAR (Cruciani et al., RA-L 2026,
+robotic prostatectomy).
 
-- Fase target: **addominale laparoscopica, endoscopio MONOCULARE**, ancora anatomica = tripode celiaco
-  (arterie splenica, epatica comune, gastrica sinistra) + pancreas.
-- Questo repo copre il lato intraoperatorio: ottenere geometria metrica dal video monoculare, per poi
-  registrare il modello TAC. Segmentazione TAC, annotazione, registrazione NON sono qui.
-- Il laparoscopio è tenuto da una specializzanda: movimenti, tremori, estrazioni per pulire dal sangue,
-  fumo. I frame reali non sono puliti.
+- Target phase: **abdominal, laparoscopic, MONOCULAR endoscope**; anatomical anchor = coeliac trunk
+  (splenic, common hepatic, left gastric arteries) + pancreas.
+- This repository covers the intraoperative side: metric geometry from monocular video, later used to
+  register the CT model. CT segmentation, annotation and registration are NOT here.
+- The laparoscope is held by a resident: motion, tremor, removals for cleaning, smoke, blood. Real frames
+  are not clean.
 
-## Come funziona il metodo (da non reinventare)
+## How the method works (do not reinvent)
 
-1. **Geometria dello shaft** (stadio `tool`): maschera → due bordi rettilinei → con K e diametro D noto si
-   ricava asse 3D e distanza. Diametro apparente ≈ 2·Z·sin(γ/2), con γ angolo tra i due raggi di bordo;
-   qui si **inverte**: D noto → Z = D / (2·sin(γ/2)), più una piccola correzione prospettica. Riferimento
-   per la formula e il Monte Carlo: `phase0_check.py` di Leonardo (fuori dal repo, vedi sotto).
-2. **Scala** (stadio `scale`): sui pixel dello shaft si ha la depth MoGe e la profondità metrica dalla
-   geometria; si fitta `mm = a·d + b`. Versione a un solo parametro (`a` = mediana del rapporto) e
-   versione affine, **entrambe tenute e confrontate**. Si applica a tutta l'immagine.
-3. Leggere la depth MoGe **dentro** la maschera dello shaft, mai sui bordi (discontinuità).
+1. **Shaft geometry** (stage `tool`, done): each edge back-projects to a plane through the camera centre;
+   axis direction = cross product of the plane normals; axis at distance r from both planes. Shaft pixels
+   get metric depth by ray-cylinder intersection.
+2. **Scale** (stage `scale`, planned): on shaft pixels, MoGe depth vs metric depth; fit `mm = a*d + b`.
+   Scale-only (`a` = median ratio) and affine are **both kept and compared**. Applied to the whole frame.
+3. Read MoGe depth **inside** the shaft mask, never on its boundary (depth discontinuity).
 
-## Stato
+## Status
 
-- Fatto: scheletro, `camera.py`, stadio 1 `calib` (board / import / moge fallback), wrapper MoGe in
-  `depth/`, 19 test sintetici. `lapscale depth|tool|scale|run|eval|viz` NON esistono ancora.
-- Prossimo: `tool/geometry.py` (vedi `docs/roadmap.md`). Non richiede reti.
+- Done: skeleton; `camera.py`; stage 1 `calib` (board / import / MoGe fallback); MoGe wrapper in
+  `depth/` (not run here: no torch/weights); `tool/geometry.py` and `tool/uncertainty.py` (Python API).
+  31 synthetic tests.
+- Not done: commands `lapscale depth|tool|scale|run|eval|viz`; segmentation; edges from masks.
+- Next: see `docs/roadmap.md` (stage 2 depth with cache, then segmentation and edges).
 
-## Decisioni già prese (non rimetterle in discussione senza motivo)
+## Decisions already taken (do not reopen without a reason)
 
-- Stadi separati che comunicano via file, più `run` che li concatena. Backend dietro protocolli.
-- MoGe: versione più recente = **MoGe-3** (rilascio 2026-08-18; `Ruicheng/moge-3-vitl` 370M, `-vitg` 1.25B;
-  MIT). Offline: MoGe-3. Real time: MoGe-2 vits/vitb in fp16. **MoGe-3 dipende da Triton/FlexGEMM: Linux
-  o WSL2, non Windows nativo.** MoGe-2 gira ovunque.
-- `fov_x` noto (da calibrazione) va passato a MoGe; se non c'è, lo stima (fallback meno affidabile).
-- Nel monoculare **l'errore sulla focale è errore di scala uno a uno**: la calibrazione è prerequisito.
-  Il diametro dello strumento idem: va misurato, non assunto.
-- Segmentazione dello strumento: la scelta NON è fatta. Candidati: SAM 3, rete semantica con backbone
-  chirurgico (es. SurgeNetXL) + fine-tuning, YOLO-seg. Criterio = **precisione dei bordi dello shaft**
-  (bias e dispersione in px su ~30-50 frame annotati a mano), NON il Dice. Un bias di 1-2 px per lato
-  su uno shaft largo ~110 px vale ~2-4% di scala. Separare shaft e pinza **geometricamente** (RANSAC
-  sul contorno), non con classi annotate.
-- Il problema dei bordi quasi orizzontali era **solo della stereo** (baseline): nel monoculare non c'è.
-- Fine-tuning di MoGe: no, finché la valutazione sulla stereo non mostra che serve.
-- La depth non serve a ogni frame: segmentazione ogni frame, depth a 5-10 Hz in parallelo (real time).
-- Hardware: **GPU ancora da confermare** (chiedere a Leonardo). Le stime di tempo nei messaggi precedenti
-  non sono misurate: il primo benchmark vero è `lapscale bench` (da scrivere).
+- Separate stages communicating through files, plus `run` to chain them. Backends behind protocols.
+- MoGe: latest = **MoGe-3** (released 2026-08-18; `Ruicheng/moge-3-vitl` 370M, `-vitg` 1.25B; MIT).
+  Offline: MoGe-3. Real time: MoGe-2 vits/vitb in fp16. **MoGe-3 needs Triton/FlexGEMM: Linux or WSL2, not
+  native Windows.** MoGe-2 runs anywhere torch does.
+- A known `fov_x` (from calibration) is passed to MoGe; otherwise MoGe estimates it (weaker fallback).
+- In monocular metric reconstruction **a focal-length error is a scale error, one to one**: calibration is
+  a prerequisite. Same for the instrument diameter: measure it, do not assume it.
+- **Downstream quantity = depth of the VISIBLE shaft**, not the distance to the infinite axis (the latter is
+  > 3x less stable for shafts tilted towards the camera).
+- **Edge bias is the critical error**: +1 px outward on both edges changes the depth by ~ -2/width
+  (-2% at 100 px width, -7% at 28 px). It is systematic for a given segmentation model.
+- Instrument segmentation: NOT chosen yet. Candidates: SAM 3, semantic network with a surgical backbone
+  (e.g. SurgeNetXL) + fine-tuning, YOLO-seg. Criterion = **shaft edge accuracy** (bias and spread in px on
+  ~30-50 hand-annotated frames), NOT Dice. Shaft and jaws separated **geometrically** (RANSAC on the
+  contour), not with annotated part classes.
+- The near-horizontal-edge problem was **stereo only** (baseline); it does not exist in monocular.
+- No MoGe fine-tuning until the evaluation on stereo data shows it is needed.
+- Depth is not needed every frame: segmentation every frame, depth at 5-10 Hz in parallel (real time).
+- Hardware: **GPU not confirmed yet** (ask Leonardo). Earlier timing estimates were not measured: the
+  first real benchmark is `lapscale bench` (to be written).
 
-## Validazione con i dati stereo della collega
+## Validation with the colleague's stereo data
 
-Esistono video stereo da Vinci (SX/DX, 1920x1080, 25 fps) con calibrazione `stereo_calib_par_30.xml`.
-Lo script `phase0_check.py` (sync, check, refine, measure, selftest) li ha validati: sync a offset 0,
-calibrazione par_30 corretta (par_0 no), rifinita con `refine` (dy mediano 1.00 → 0.48 px). Misura dello
-shaft: 8.01 ± 0.30 mm contro 8 nominali, **a 42 mm di distanza** (un solo frame utile a 10°).
-- Limite noto: validata solo a distanza ravvicinata; il tessuto sta a ~100 mm. Un errore sistematico
-  pesa di più lontano.
-- Uso previsto in `eval`: video sinistro come input monoculare, stereo come verità, errori per fascia di
-  distanza dallo strumento.
-- Attenzione al raggio: il paper dichiara 4.5 mm per gli strumenti da Vinci, la misura qui conferma
-  8 mm di diametro (raggio 4). Verificare sempre il diametro dello strumento usato.
+Stereo da Vinci videos (left/right, 1920x1080, 25 fps) with calibration `stereo_calib_par_30.xml`. The
+script `phase0_check.py` (sync, check, refine, measure, selftest; outside this repository) validated them:
+offset 0; calibration par_30 correct (par_0 wrong); refined with `refine` (median vertical disparity
+1.00 -> 0.48 px). Shaft measurement: 8.01 ± 0.30 mm vs 8 mm nominal, **at 42 mm** (one usable frame, edges
+at 10 deg).
+- Known limit: validated only at close range; tissue is at ~100 mm, where a systematic error weighs more.
+- Planned use in `eval`: left video as monocular input, stereo as ground truth, errors per distance band
+  from the instrument.
+- Radius: the paper states 4.5 mm for da Vinci instruments; the measurement here confirms an 8 mm diameter
+  (radius 4). Always check the diameter of the instrument in use.
 
-## Regole di lavoro
+## Working rules
 
-- **Prima di dire "fatto": `pytest` e `ruff check src tests` verdi.** Mostra i numeri reali, non quelli
-  attesi. Se un test sintetico non torna, indaga e spiegalo (è già successo: la std della focale di
-  OpenCV è ottimista fino a ~2x, ora documentato).
-- Ogni modulo geometrico ha un **test su dati sintetici con verità nota** (come `tests/synthetic.py`).
-- Ogni scelta di metodo va in `docs/decisions.md`; ogni esperimento con risultati in
-  `docs/experiment_log.md`; formati dei file in `docs/outputs.md`.
-- Stile dell'utente: comunicazione diretta e tecnicamente precisa, **soluzioni minime e oneste** meglio di
-  soluzioni rifinite che promettono troppo, **nessuno scope creep**: fai ciò che è chiesto, segnala il
-  resto invece di farlo.
-- Non inventare riferimenti bibliografici o numeri. Se non sai, dillo. Se una versione di libreria o di un
-  modello può essere cambiata, verificala nel codice o nel README ufficiale.
-- Dipendenze pesanti (torch, MoGe, SAM) solo come extras opzionali, importate in modo lazy.
-- Non committare video, pesi, dati (`.gitignore` già li esclude). Dati sanitari: nulla di identificabile.
-- Lingua: **chat in italiano; codice, commenti, docstring e docs in inglese**.
+- **Before saying "done": `pytest` and `ruff check src tests` pass.** Report the measured numbers, not the
+  expected ones. If a synthetic test does not match, investigate and explain (example: OpenCV's focal std
+  can be ~2x optimistic; now documented).
+- Every geometric module has a **test on synthetic data with known ground truth**.
+- Method choices go in `docs/decisions.md`; experiments with results in `docs/experiment_log.md`; file
+  formats in `docs/outputs.md`.
+- User preferences: direct, technically precise communication; **minimal, honest solutions** over polished
+  ones that overpromise; **no scope creep**: do what is asked, flag the rest instead of doing it.
+- Do not invent references or numbers. If unsure, say so. If a library or model version may have changed,
+  check the code or the official README.
+- Heavy dependencies (torch, MoGe, SAM) only as optional extras, imported lazily.
+- Never commit videos, weights or data (`.gitignore` excludes them). Clinical data: nothing identifiable.
+- Language: everything in the repository (code, comments, docstrings, docs) in English.
 
-## Comandi
+## Commands
 
 ```bash
 uv venv && uv pip install -e ".[dev]"     # base (numpy, opencv, pyyaml)
-uv pip install -e ".[moge]"               # + torch e MoGe (v3: Linux/WSL2)
-pytest                                    # ~20 s
+uv pip install -e ".[moge]"               # + torch and MoGe (v3: Linux/WSL2)
+pytest                                    # ~30 s
 ruff check src tests
 lapscale calib --help
 ```
 
-## Domande aperte (chiedere a Leonardo, non decidere da soli)
+## Open questions (ask Leonardo, do not decide alone)
 
-- Quale GPU/macchina per sviluppo e per il real time?
-- Diametri reali degli strumenti laparoscopici all'IEO (5 o 10 mm?) e ottica usata (0° o 30°)?
-- Esiste una calibrazione del laparoscopio IEO? Altrimenti serve un video di scacchiera/ChArUco
-  (`docs/calibration.md`).
-- Dove sono i video laparoscopici monoculari e che risoluzione/fps hanno?
+- Which GPU/machine for development and for real time?
+- Actual diameters of the IEO laparoscopic instruments (5 or 10 mm?) and optics used (0 or 30 deg)?
+- Is there a calibration of the IEO laparoscope? Otherwise a ChArUco video is needed (`docs/calibration.md`).
+- Where are the monocular laparoscopic videos, and at which resolution/fps?
