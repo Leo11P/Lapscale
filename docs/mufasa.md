@@ -39,7 +39,8 @@ bash slurm/download_weights.sh Ruicheng/moge-3-vitg depth-anything/DA3NESTED-GIA
 ```
 
 SAM 3 is gated: request access on huggingface.co/facebook/sam3, then once `.venv-sam3/bin/hf auth login`
-(the token goes in `$HF_HOME`, on the shared storage). Jobs run with `HF_HUB_OFFLINE=1`, so a missing weight
+(the token is saved in `~/.cache/huggingface/token`, not on the shared storage; `download_weights.sh` points
+`HF_TOKEN_PATH` at it, because `env.sh` moves `HF_HOME`). Jobs run with `HF_HUB_OFFLINE=1`, so a missing weight
 fails immediately instead of downloading on a compute node; set `HF_HUB_OFFLINE=0` at submission to allow it.
 
 ## 3. Where things go (`slurm/env.sh`)
@@ -130,7 +131,10 @@ rsync -av ./seg_ieo/ mufasa:/home/shared/nearmrs/<user>/lapscale/bench/seg_ieo/ 
 | `missing environment .../.venv-sam3` | build it on the login node: `bash setup_env.sh sam3` |
 | `libtorch_cpu.so: failed to map segment` | torch imported on the login node: run it in a job |
 | `LocalEntryNotFoundError` / offline errors | weight not in `$HF_HOME`: `bash slurm/download_weights.sh <repo>` (or submit with `HF_HUB_OFFLINE=0`) |
-| SAM 3 `401` / gated | access not granted yet, or no `hf auth login` |
+| SAM 3 `401` / gated | access not granted yet, or no `hf auth login`. A 401 right after login means the token was not found: `HF_HOME` points to the shared cache, the token is in `~/.cache/huggingface` (`download_weights.sh` handles it) |
+| login node: `memory mapping the file failed` / `memory allocation of N bytes failed` | the login node caps virtual memory at 2 GB (`ulimit -v`, hard limit). `setup_env.sh` limits uv to few threads and one download; `download_weights.sh` disables `hf_xet`. Use the same settings for manual `uv pip` / `hf` runs |
+| SAM 3: `No module named pkg_resources` / `einops` / `pycocotools` ... | SAM 3 imports packages it does not declare; the list is in the `sam3` spec of `setup_env.sh` (with `setuptools<81`). DA3 likewise needs `addict`, `scikit-learn` |
+| SAM 3: `mat1 and mat2 must have the same dtype` | the backend must run under bf16 autocast (done in `tool/backends/sam3.py`) |
 | MoGe-3: `Failed to find C compiler` | Triton compiles a small launcher: load a gcc module in the job (`module avail gcc`) or set `CC` |
 | `ImportError: libGL.so.1` | an `opencv-python` came back: `uv pip uninstall --python .venv-X/bin/python opencv-python` and reinstall `opencv-python-headless` |
 | DA3: xformers / torch resolution fails | `REPIN=1 bash setup_env.sh da3`; if still failing, pin a torch version compatible with the latest xformers wheel in `setup_env.sh` |

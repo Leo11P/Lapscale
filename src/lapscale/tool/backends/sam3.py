@@ -30,6 +30,7 @@ class Sam3Backend:
         except ImportError as e:  # pragma: no cover - depends on the environment
             raise ImportError(f"SAM 3 not available ({e}); see the module docstring for installation") from e
         self.torch, self.Image = torch, Image
+        self.device = device
         self.prompts = [prompts] if isinstance(prompts, str) else list(prompts)
         model = build_sam3_image_model(device=device, checkpoint_path=checkpoint, load_from_HF=checkpoint is None)
         self.proc = Sam3Processor(model, resolution=resolution, device=device, confidence_threshold=confidence)
@@ -39,7 +40,7 @@ class Sam3Backend:
     def predict(self, frame_bgr: np.ndarray) -> list[InstrumentInstance]:  # pragma: no cover - needs SAM 3
         img = self.Image.fromarray(np.ascontiguousarray(frame_bgr[:, :, ::-1]))
         out: list[InstrumentInstance] = []
-        with self.torch.inference_mode():
+        with self.torch.inference_mode(), _autocast(self):
             state = self.proc.set_image(img)
             for prompt in self.prompts:
                 self.proc.reset_all_prompts(state)
@@ -51,6 +52,15 @@ class Sam3Backend:
         return dedup(out, self.dedup_iou)
 
 
+def _autocast(self):
+    """SAM 3 builds parts of the model in bfloat16 and is run under bf16 autocast in its own examples;
+    without it the matmuls mix bf16 and fp32 ('mat1 and mat2 must have the same dtype')."""
+    import contextlib
+    if str(self.device).startswith("cuda"):
+        return self.torch.autocast("cuda", dtype=self.torch.bfloat16)
+    return contextlib.nullcontext()
+
+
 def _box_predict(self, frame_bgr: np.ndarray, box_xyxy) -> InstrumentInstance | None:  # pragma: no cover
     """Box prompt (annotation helper): SAM 3 treats a box as an exemplar of a concept and may return
     several instances; the one that overlaps the box most is kept."""
@@ -58,7 +68,7 @@ def _box_predict(self, frame_bgr: np.ndarray, box_xyxy) -> InstrumentInstance | 
     x0, y0, x1, y1 = box_xyxy
     box = [(x0 + x1) / 2 / w, (y0 + y1) / 2 / h, (x1 - x0) / w, (y1 - y0) / h]
     img = self.Image.fromarray(np.ascontiguousarray(frame_bgr[:, :, ::-1]))
-    with self.torch.inference_mode():
+    with self.torch.inference_mode(), _autocast(self):
         state = self.proc.set_image(img)
         st = self.proc.add_geometric_prompt(box=box, label=True, state=state)
         probs = st["masks_logits"].float().cpu().numpy()[:, 0]

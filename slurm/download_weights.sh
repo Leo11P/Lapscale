@@ -8,6 +8,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source slurm/env.sh
 export HF_HUB_OFFLINE=0
+[ -f "$HOME/.cache/huggingface/token" ] && export HF_TOKEN_PATH="$HOME/.cache/huggingface/token"   # `hf auth login` stores it in $HOME, not in the shared HF_HOME
+export HF_HUB_DISABLE_XET=1 HF_XET_NUM_CONCURRENT_RANGE_GETS=1   # login node: 2 GB virtual-memory cap, hf_xet (Rust) overruns it
 PY=.venv/bin/python
 [ -x "$PY" ] || { echo "build the main environment first: bash setup_env.sh"; exit 1; }
 REPOS=(Ruicheng/moge-3-vitl Ruicheng/moge-2-vitl Ruicheng/moge-2-vits-normal Ruicheng/moge-2-vitb-normal

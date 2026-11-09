@@ -15,6 +15,9 @@ REPO=$PWD
 export PATH="$HOME/.local/bin:$PATH"
 SHARED=${LAPSCALE_SHARED:-/home/shared/nearmrs/$USER}
 export UV_CACHE_DIR="$SHARED/cache/uv" TMPDIR="$SHARED/tmp" UV_LINK_MODE=copy
+# The login node caps virtual memory at 2 GB (ulimit -v, hard): keep uv's address space small
+# (few threads, one download/install at a time), else "memory mapping the file failed (os error 12)".
+export TOKIO_WORKER_THREADS=2 RAYON_NUM_THREADS=2 UV_CONCURRENT_DOWNLOADS=1 UV_CONCURRENT_INSTALLS=1 UV_CONCURRENT_BUILDS=1
 mkdir -p "$UV_CACHE_DIR" "$TMPDIR" logs requirements third_party
 PYVER=3.12                                         # SAM 3 needs >= 3.12, DA3 <= 3.13
 TORCH_INDEX=https://download.pytorch.org/whl/cu130 # driver CUDA 13.0 on the nodes; torch brings its own runtime
@@ -38,9 +41,12 @@ spec() {     # what each environment contains (first build, or REPIN=1)
     case "$1" in
         main) install torch torchvision "moge @ git+https://github.com/microsoft/MoGe.git" "ultralytics>=8.3" \
                       "timm==1.0.13" -e ".[dev]" ;;
-        sam3) install torch torchvision "sam3 @ git+https://github.com/facebookresearch/sam3.git" -e . ;;
+        sam3) install torch torchvision "sam3 @ git+https://github.com/facebookresearch/sam3.git" \
+                      "setuptools<81" einops open_clip_torch psutil scipy pycocotools matplotlib \
+                      scikit-image scikit-learn pandas numba python-rapidjson -e . ;;   # undeclared by sam3; pkg_resources gone in setuptools 81
         da3)  install torch torchvision xformers \
-                      "depth-anything-3 @ git+https://github.com/ByteDance-Seed/Depth-Anything-3.git" -e . ;;
+                      "depth-anything-3 @ git+https://github.com/ByteDance-Seed/Depth-Anything-3.git" \
+                      addict scikit-learn -e . ;;  # imported by DA3 but not declared
         *) echo "unknown environment '$1' (main | sam3 | da3)"; exit 1 ;;
     esac
 }
