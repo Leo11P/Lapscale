@@ -35,14 +35,14 @@ robotic prostatectomy).
 
 ## Status
 
-- Done: skeleton; `camera.py`; stage 1 `calib` (board / import / MoGe fallback); stage 2 `lapscale depth`
-  (undistorted view, MoGe v2/v3 backend, per-frame cache, ray sampling = bridge to the geometry; MoGe not
-  run here: no torch/weights); `tool/geometry.py`, `tool/uncertainty.py`, `tool/edges.py`
-  (mask -> sub-pixel shaft edges); segmentation backends `sam3` / `yolo` / `masks` (sam3 and yolo not run
-  here: no GPU/weights); `segbench` (sample, annotate GUI, run, compare). 51 synthetic tests.
-- Not done: stage 4 `scale`; `lapscale tool` over a video; `run`, `eval`, `viz`; real-data runs
-  (segbench on IEO frames, MoGe on IEO videos). How it all connects: `docs/architecture.md`.
-- Next: stage 4 + `lapscale tool` over a video, which join everything.
+- Done and verified on synthetic data (tests): all four stages, `run` offline and stream, `viz`, `segbench`
+  (edges and masks, YOLO export), `segtrain` (SurgeNetXL, YOLO), `depthbench` (stereo ground truth), `eval`,
+  `check`. See `docs/roadmap.md` and `docs/experiment_log.md`.
+- NOT run here (no GPU, torch or weights): every real network backend (MoGe, DA3, SAM 3, YOLO, SurgeNetXL) and
+  the training code; the two annotation GUIs. `lapscale check` and `docs/verification.md` are the plan to
+  verify them on Leonardo's machine.
+- Next: Leonardo runs `docs/verification.md`; then decisions on the depth network (depthbench), the
+  segmentation network (segbench), and scale-only vs affine (eval).
 
 ## Decisions already taken (do not reopen without a reason)
 
@@ -58,7 +58,10 @@ robotic prostatectomy).
 - **Edge bias is the critical error**: +1 px outward on both edges changes the depth by ~ -2/width
   (-2% at 100 px width, -7% at 28 px). It is systematic for a given segmentation model.
 - Instrument segmentation: NOT chosen yet; decided by `segbench` (`docs/segbench.md`). Order: SAM 3
-  zero-shot first; a SurgeNetXL-based network or a fine-tuned YOLO-seg only if needed. Criterion =
+  zero-shot first; a SurgeNetXL-based network or a fine-tuned YOLO-seg (both implemented in `segtrain`) only
+  if needed.
+- Depth network: NOT chosen yet; decided by `depthbench` on the stereo data, main criterion = scale-aligned
+  error (the scale comes from the instrument). Candidates: MoGe-3, MoGe-2, DA3 (MONO, METRIC, NESTED). Criterion =
   **shaft edge accuracy / resulting depth error**, NOT Dice. Shaft and jaws separated **geometrically**
   (RANSAC on the contour), not with annotated part classes.
 - The near-horizontal-edge problem was **stereo only** (baseline); it does not exist in monocular.
@@ -101,7 +104,7 @@ at 10 deg).
 ```bash
 uv venv && uv pip install -e ".[dev]"     # base (numpy, opencv, pyyaml)
 uv pip install -e ".[moge]"               # + torch and MoGe (v3: Linux/WSL2)
-pytest                                    # ~30 s
+pytest                                    # ~2-3 min
 ruff check src tests
 lapscale calib --help
 ```

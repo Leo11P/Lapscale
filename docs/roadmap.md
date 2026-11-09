@@ -1,20 +1,20 @@
 # Roadmap
 
-1. ~~Skeleton, camera model, stage 1 (calibration / import / MoGe fallback), synthetic tests~~
-2. ~~`tool/geometry.py` + `tool/uncertainty.py`: cylinder from two edges + known diameter, per-pixel depth,
-   Monte Carlo uncertainty (random / systematic), synthetic tests~~
-3. Stage 2 `depth`:
-   * ~~`lapscale depth`: undistorted pinhole view with the calibrated FOV, disc mask, MoGe v2/v3 backend,
-     per-frame cache (resumable, timed), ray sampling `DepthFrame.sample` (the bridge to the geometry)~~
-   * run MoGe-2 and MoGe-3 on the IEO videos (MoGe-3 on Linux/WSL2 or Mufasa); timings on the target GPU
-4. Stage 3 segmentation:
-   * ~~SegBackend protocol; backends sam3 / yolo / masks; mask -> shaft edges (sub-pixel, RANSAC, gate);
-     `segbench` (sample, annotate, run, compare) with synthetic tests~~
-   * annotate 30-50 IEO frames; run SAM 3 (several prompts); decide with `docs/segbench.md`
-   * only if needed: fine-tuning (SurgeNetXL backbone or YOLO-seg), training masks pre-annotated with SAM 3
-5. Stage 4 `scale`: scale-only and affine fits on the shaft region, gating by the stage-3 uncertainty,
-   temporal smoothing. `lapscale tool` over a video (cached). `run --mode offline`; `viz`.
-   This is what joins everything: see `architecture.md`.
-6. `eval` on the colleague's stereo data (left video as monocular input, stereo as ground truth): errors
-   per distance band from the instrument; MoGe-3 vs MoGe-2.
-7. `run --mode stream`: segmentation every frame, depth asynchronous; measured latencies.
+Done (verified on synthetic data, see experiment_log.md):
+1. Skeleton, camera model, stage 1 `calib` (ChArUco / checkerboard, import, MoGe fallback, optical disc).
+2. Stage 3 geometry: cylinder from two edges + diameter, per-pixel depth, Monte Carlo uncertainty.
+3. Stage 3 segmentation: backends sam3 / yolo / surgenet / masks; mask -> sub-pixel shaft edges;
+   `segbench` (sample, annotate edges, annotate masks, run, compare, export-yolo); `segtrain` (SurgeNetXL, YOLO).
+4. Stage 2 depth: backends moge (v2/v3) / da3 / folder; undistorted view; per-frame cache; ray sampling.
+5. `depthbench`: stereo ground truth (SGBM, left-right check), metrics under native / scale / affine alignment.
+6. Stage 4 scale (scale-only and affine, gating, smoothing); `lapscale tool | scale | run (offline, stream) |
+   viz | eval`; `lapscale check`.
+
+To do (needs real data / GPU, see verification.md):
+7. `lapscale check` with all weights; timings on the target GPU.
+8. Depth benchmark on the colleague's stereo videos -> choice of the depth network.
+9. Segmentation benchmark on 30-50 annotated IEO frames -> choice (or fine-tuning) of the segmentation.
+10. Whole pipeline on the stereo data (`eval`) and on the IEO monocular videos; real-time profiling.
+
+Open questions: GPU; diameters of the IEO instruments; calibration of the IEO laparoscope; whether the
+affine variant is ever needed (decided by `eval`).

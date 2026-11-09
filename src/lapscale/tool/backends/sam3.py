@@ -51,6 +51,29 @@ class Sam3Backend:
         return dedup(out, self.dedup_iou)
 
 
+def _box_predict(self, frame_bgr: np.ndarray, box_xyxy) -> InstrumentInstance | None:  # pragma: no cover
+    """Box prompt (annotation helper): SAM 3 treats a box as an exemplar of a concept and may return
+    several instances; the one that overlaps the box most is kept."""
+    h, w = frame_bgr.shape[:2]
+    x0, y0, x1, y1 = box_xyxy
+    box = [(x0 + x1) / 2 / w, (y0 + y1) / 2 / h, (x1 - x0) / w, (y1 - y0) / h]
+    img = self.Image.fromarray(np.ascontiguousarray(frame_bgr[:, :, ::-1]))
+    with self.torch.inference_mode():
+        state = self.proc.set_image(img)
+        st = self.proc.add_geometric_prompt(box=box, label=True, state=state)
+        probs = st["masks_logits"].float().cpu().numpy()[:, 0]
+        scores = st["scores"].float().cpu().numpy()
+    if len(probs) == 0:
+        return None
+    inside = np.zeros((h, w), bool)
+    inside[int(max(0, y0)):int(y1) + 1, int(max(0, x0)):int(x1) + 1] = True
+    k = int(np.argmax([((p > 0.5) & inside).sum() for p in probs]))
+    return InstrumentInstance(probs[k].astype(np.float32), float(scores[k]), "box")
+
+
+Sam3Backend.predict_box = _box_predict
+
+
 def dedup(instances: list[InstrumentInstance], iou: float) -> list[InstrumentInstance]:
     """Drop instances that overlap a higher-scoring one (several prompts can find the same tool)."""
     keep: list[InstrumentInstance] = []

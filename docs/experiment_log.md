@@ -11,3 +11,7 @@
 | 7 | 2026-11-09 | segbench | 5 synthetic frames, annotation noise 0.2 px, 4 clicks per edge | oracle masks | found 5/5, depth error median 0.17%, p90 0.53%, bias +0.01 px | floor set by the annotation noise |
 | 8 | 2026-11-09 | segbench | same | masks dilated 1 px | found 4/4 predicted, bias +1.38 px, depth error -6.1%; bias-corrected 0.45% | stable bias is correctable |
 | 9 | 2026-11-09 | depth | fake backend = exact depth of a tilted plane in the undistorted view | ray sampling from raw pixels | plane depth recovered within 0.2% | checks undistortion, FOV, cache and the bridge to the geometry; MoGe itself not run here |
+| 10 | 2026-11-09 | pipeline offline | synthetic video: tilted textured tissue + 5 mm shaft, distorted camera, optical disc; oracle segmentation; depth "network" = exact depth x 0.0123 | scale_only / affine | metric depth of the whole tissue: median error 0.03% / 0.17%, p95 0.06% / 0.21% | native scale of the fake network reported off by x0.081, as constructed |
+| 11 | 2026-11-09 | pipeline stream | same, depth 50 ms slower than segmentation (asynchronous) | causal median | final scale within 0.5% of the true one | |
+| 12 | 2026-11-09 | depthbench stereo GT | synthetic stereo pair (4.1 mm baseline, distortion, small misalignment) | SGBM + left-right check | GT vs exact depth: median -0.08%, p95 1.05%, 57% valid pixels | MJPG compression included |
+| 13 | 2026-11-09 | eval | synthetic video, GT on the depth-map grid | instrument scale vs oracle | AbsRel < 0.3% (instrument), < 0.2% (oracle) | |

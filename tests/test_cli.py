@@ -21,7 +21,3 @@ def test_config_defaults(tmp_path):
     out = tmp_path / "b.png"
     assert main(["--config", str(cfg), "calib", "target", "--out", str(out)]) == 0
     assert out.exists()
-
-
-def test_unimplemented_stage():
-    assert main(["scale"]) == 2

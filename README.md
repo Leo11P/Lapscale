@@ -1,99 +1,48 @@
 # lapscale
 
-Metric depth for **monocular laparoscopy**, image only: the instrument shaft (a cylinder of known
-diameter) is the ruler that turns a monocular depth network (MoGe) into millimetres.
-Method after Wei et al., *Enhanced Scale-aware Depth Estimation for Monocular Endoscopic Scenes with
-Geometric Modeling* (MonoEndoDepth), with MoGe in place of Monodepth2.
+Metric depth for **monocular laparoscopy**, image only: the instrument shaft (a cylinder of known diameter) is
+the ruler that turns a monocular depth network (MoGe, Depth Anything 3, ...) into millimetres. Method after Wei
+et al., *Enhanced Scale-aware Depth Estimation for Monocular Endoscopic Scenes with Geometric Modeling*
+(MonoEndoDepth), with a modern depth network, per-pixel shaft depth, explicit uncertainty and benchmarks for
+every choice.
 
-| Stage | Command | Status |
+| Part | Command | |
 |---|---|---|
-| 1 camera intrinsics | `lapscale calib …` | **done** |
-| 2 depth (MoGe) | `lapscale depth` | **done** (cache, undistortion, ray sampling); MoGe not run in CI |
-| 3 instrument geometry | `lapscale tool` | geometry, uncertainty, mask -> edges done (Python API) |
-| 3 segmentation benchmark | `lapscale segbench …` | **done**; SAM 3 / YOLO / external masks |
-| 4 scale recovery | `lapscale scale` | planned |
-| all, offline / real time | `lapscale run` | planned |
-| evaluation vs stereo GT | `lapscale eval` | planned |
+| 1 camera intrinsics | `lapscale calib board / import / moge / mask / show / target` | ChArUco or checkerboard; import = bypass |
+| 2 depth | `lapscale depth` | backends `moge` (v2, v3), `da3`, `folder` |
+| 3 instrument | `lapscale tool` | backends `sam3`, `yolo`, `surgenet`, `masks`; sub-pixel shaft edges; cylinder geometry |
+| 4 scale | `lapscale scale` | scale-only and affine, gating, temporal smoothing |
+| whole video | `lapscale run --mode offline / stream`, `lapscale viz` | cached stages / real time |
+| segmentation benchmark | `lapscale segbench sample / annotate / annotate-masks / run / compare / export-yolo` | by shaft-edge accuracy |
+| segmentation training | `lapscale segtrain surgenet / yolo` | only if zero-shot is not enough |
+| depth benchmark | `lapscale depthbench prepare-stereo / prepare-folder / run / compare` | stereo ground truth |
+| evaluation | `lapscale eval` | whole pipeline against ground truth |
+| backends on this machine | `lapscale check` | loads each network, runs it, reports OK / FAIL |
 
-## Install
+Everything is verified on synthetic data with exact ground truth (`pytest`); the real networks run only where
+they are installed. Start with `docs/install.md`, then follow `docs/verification.md`.
 
-```bash
-uv venv && uv pip install -e ".[dev]"          # calibration + tests (numpy, opencv, pyyaml)
-uv pip install -e ".[moge]"                     # + MoGe (torch). MoGe-3 needs Linux or WSL2 (Triton)
-pytest                                          # synthetic tests, no data needed
-```
-
-## Stage 1: camera intrinsics
-
-In monocular metric reconstruction **an error on the focal length is the same error on the scale**,
-so this stage reports the focal-length uncertainty as a percentage, i.e. directly as a scale error.
-
-**A. Calibrate** (recommended). Print a ChArUco board, *measure* a square with a calliper, record a
-video of it with the laparoscope (same optics, camera head and zoom as in surgery; tilt the board
-20–45°, cover the whole field including the edge of the optical disc):
+## Quick start
 
 ```bash
-lapscale calib target --target charuco --cols 11 --rows 8 --square-mm 5 --marker-mm 3.7 --out board.png
-lapscale calib board  --input calib_video.mp4 --target charuco --cols 11 --rows 8 \
-                      --square-mm 4.98 --marker-mm 3.68 --out configs/camera/lap_ieo.yaml
+uv venv && uv pip install -e ".[dev]" && pytest
+
+# camera (bypass with known intrinsics, or calibrate: docs/calibration.md)
+lapscale calib import --file stereo_calib.xml --side left --image-size 1920x1080 --video surgery.mp4 \
+                      --out configs/camera/lap.yaml
+
+# whole video, offline, with overlay
+lapscale run --video surgery.mp4 --camera configs/camera/lap.yaml --diameter-mm 5 \
+             --seg-backend sam3 --depth-backend moge --moge-version v3 --stride 5 --overlay
+
+# real time
+lapscale run --mode stream --video surgery.mp4 --camera configs/camera/lap.yaml --diameter-mm 5 \
+             --seg-backend sam3 --depth-backend moge --moge-version v2 --depth-checkpoint Ruicheng/moge-2-vits-normal \
+             --out-video stream.mp4
 ```
 
-Output: `lap_ieo.yaml` plus `lap_ieo_report/` with `calib_report.json`, `coverage.png` (all corners
-on one frame: green train, orange held-out, red rejected) and `undistort_check.png` (straight edges
-must look straight on the right). Read the warnings: they say what to fix.
-
-**B. Bypass** — you already have intrinsics:
-
-```bash
-# from an OpenCV file (e.g. one side of a stereo calibration, intrinsics computed on a crop)
-lapscale calib import --file stereo_calib.xml --side left --image-size 1280x960 --crop-offset 320,0 \
-                      --video surgery.mp4 --out configs/camera/x.yaml
-# or write a camera YAML by hand: see configs/camera/example_manual.yaml, then
-lapscale calib mask --camera configs/camera/x.yaml --video surgery.mp4    # adds the optical disc
-```
-
-**C. Last resort** — no calibration possible: focal length from MoGe, no distortion model.
-
-```bash
-lapscale calib moge --video surgery.mp4 --out configs/camera/x_moge.yaml
-```
-
-Every later stage takes `--camera PATH` or `--camera moge`.
-
-## Stage 3 (geometry part): metric depth of the shaft
-
-```python
-from lapscale.camera import Camera
-from lapscale.tool import shaft_from_edges, shaft_uncertainty
-
-cam = Camera.load("configs/camera/lap_ieo.yaml")
-est = shaft_from_edges(edge_a_px, edge_b_px, cam, diameter_mm=5.0)   # points (>= 2 each), raw pixels
-est.depth_mid                    # mm, shaft surface at the middle of the edges
-est.depth_at(xy_normalised)      # mm, any shaft pixels (NaN where the ray misses)
-unc = shaft_uncertainty(edge_a_px, edge_b_px, cam, 5.0, point_sd_px=0.5, bias_sd_px=1.0,
-                        focal_rel_sd=0.003)
-unc.rel_sd_total_pct, unc.bias_sensitivity_pct_per_px
-```
-
-## Stage 2: depth with MoGe
-
-```bash
-lapscale depth --video surgery.mp4 --camera configs/camera/lap.yaml --moge-version v3 --stride 5
-# -> runs/surgery/depth/<tag>/: one depth map per processed frame, resumable
-```
-
-How the stages connect (and what is still missing to run a whole video): `docs/architecture.md`.
-
-## Choosing the segmentation network
-
-```bash
-lapscale segbench sample   --video v1.mp4 v2.mp4 --bench bench/ --n-per-video 25
-lapscale segbench annotate --bench bench/ --diameter-mm 5          # click the two edges of each shaft
-lapscale segbench run      --bench bench/ --camera configs/camera/lap.yaml --backend sam3
-lapscale segbench compare  --bench bench/
-```
-
-Protocol, metrics and the proposed decision rule: `docs/segbench.md`.
+Outputs go to `runs/<video>/` (`docs/outputs.md`). Choosing the networks: `docs/segbench.md` (segmentation)
+and `docs/depthbench.md` (depth). How the stages connect: `docs/architecture.md`.
 
 ## Layout
 
@@ -101,13 +50,19 @@ Protocol, metrics and the proposed decision rule: `docs/segbench.md`.
 configs/            default.yaml (per-stage defaults), instruments.yaml (shaft diameters), camera/
 src/lapscale/
   camera.py         Camera model + YAML I/O (the contract between stage 1 and the rest)
-  io/               frame sources (video / image folder), run cache
+  io/               frame sources (video / image folder), per-run caches (depth, tool)
   calib/            targets, optical disc, calibration, import, MoGe fallback, report
-  depth/            DepthBackend protocol, MoGe v2/v3, undistorted view, per-video run
-  tool/             shaft geometry and uncertainty, mask -> shaft edges, segmentation backends
-  segbench/         benchmark of segmentation by shaft edge accuracy (docs/segbench.md)
-  scale/ pipeline/ eval/ viz/     next stages
-tests/              synthetic tests (rendered boards with known intrinsics)
-docs/               decisions, outputs, roadmap, experiment log
-scripts/slurm/      cluster jobs (MoGe-3 offline)
+  depth/            DepthBackend protocol, MoGe, DA3, folder; undistorted view; per-video run
+  tool/             segmentation backends, mask -> shaft edges, cylinder geometry, uncertainty, per-video run
+  scale/            per-frame fit, gating, smoothing; metric depth of a frame
+  pipeline/         offline and real-time runners
+  viz/              overlays
+  segbench/         segmentation benchmark (edges and masks), YOLO export
+  segtrain/         SurgeNetXL and YOLO fine-tuning
+  depthbench/       stereo ground truth, depth metrics, comparison
+  eval/             whole pipeline against ground truth
+  check.py          backends on this machine
+tests/              synthetic scenes with exact ground truth (calibration, shafts, laparoscopic video, stereo)
+docs/               install, verification, architecture, calibration, segbench, depthbench, decisions,
+                    outputs, roadmap, experiment log
 ```

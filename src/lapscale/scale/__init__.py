@@ -1,5 +1,4 @@
-"""Stage 4 (to be implemented): backend depth -> millimetres.
+"""Stage 4: network depth -> millimetres with the instrument (see fit.py)."""
+from .fit import VARIANTS, FrameFit, ScaleConfig, TrackState, apply_scale, fit_frame, smooth_offline
 
-Per frame, on shaft pixels: scale-only fit (median ratio) and affine fit (a*d + b), both kept for
-comparison; frames gated by the stage-3 uncertainty; temporal smoothing of the parameters.
-"""
+__all__ = ["VARIANTS", "FrameFit", "ScaleConfig", "TrackState", "apply_scale", "fit_frame", "smooth_offline"]

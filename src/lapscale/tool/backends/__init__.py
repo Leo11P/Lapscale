@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from ..base import SegBackend
 
-NAMES = ("sam3", "yolo", "masks")
+NAMES = ("sam3", "yolo", "masks", "surgenet")
 
 
 def make_seg_backend(name: str, **kw) -> SegBackend:
@@ -13,6 +13,9 @@ def make_seg_backend(name: str, **kw) -> SegBackend:
     if name == "yolo":
         from .yolo import YoloBackend
         return YoloBackend(**kw)
+    if name == "surgenet":
+        from .surgenet import SurgeNetBackend
+        return SurgeNetBackend(**kw)
     if name == "masks":
         from .masks import MasksBackend
         return MasksBackend(**kw)

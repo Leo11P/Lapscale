@@ -23,6 +23,8 @@ class DepthPrediction:
 
 class DepthBackend(Protocol):
     name: str
+    output_kind: str            # "depth" (z, any scale) or "inverse_depth" (affine-invariant disparity)
+    native_unit_mm: float | None  # millimetres per output unit if the backend claims metric depth, else None
 
     def predict(self, image_bgr: np.ndarray, fov_x_deg: float | None = None) -> DepthPrediction:
         """``fov_x_deg``: known horizontal FOV of the (undistorted) image, or None to let the

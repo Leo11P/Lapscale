@@ -36,10 +36,14 @@ def run_benchmark(bench: str | Path, backend: SegBackend, camera: Camera, name: 
     (out / "overlays").mkdir(parents=True, exist_ok=True)
     frames = {f["id"]: f for f in load_manifest(bench)["frames"]}
     ann = load_annotations(bench)
-    todo = [fid for fid, a in sorted(ann.items()) if a.status == "ok" and a.instruments]
+    from .masks import load_frame_masks, load_index, mask_metrics
+    edge_frames = {fid for fid, a in ann.items() if a.status == "ok" and a.instruments}
+    mask_frames = {fid for fid in load_index(bench) if fid in frames}
+    todo = sorted(edge_frames | mask_frames)
     if not todo:
-        raise RuntimeError(f"no annotated frames in {bench}: run `lapscale segbench annotate` first")
-    rows, latencies, kept = [], [], []          # kept: (row index, pred edges) for the bias correction
+        raise RuntimeError(f"no annotated frames in {bench}: run `lapscale segbench annotate` (edges) "
+                           "or `annotate-masks` first")
+    rows, latencies, kept, mrows = [], [], [], []   # kept: (row index, pred edges) for the bias correction
     for n_done, fid in enumerate(todo, 1):
         img = cv2.imread(str(bench / frames[fid]["file"]))
         cam = camera.for_size((img.shape[1], img.shape[0]))
@@ -49,6 +53,11 @@ def run_benchmark(bench: str | Path, backend: SegBackend, camera: Camera, name: 
         instances = backend.predict(img)
         lat = 1000 * (time.perf_counter() - t0)
         latencies.append(lat)
+        if fid in mask_frames:
+            mm = mask_metrics([i.prob > 0.5 for i in instances], load_frame_masks(bench, fid), img.shape[:2])
+            mrows.append(dict(frame=fid, **{k: round(v, 4) for k, v in mm.items()}))
+        if fid not in edge_frames:
+            continue
         cands = []                               # (edges, reason) per instance
         for inst in instances:
             res = extract_shaft_edges(inst.prob, cam, edge_cfg)
@@ -99,7 +108,17 @@ def run_benchmark(bench: str | Path, backend: SegBackend, camera: Camera, name: 
         wr.writeheader()
         for r in rows:
             wr.writerow({k: r.get(k, "") for k in FIELDS})
-    summary = summarise(rows, latencies)
+    if mrows:
+        with open(out / "per_frame_masks.csv", "w", newline="") as fh:
+            wr = csv.DictWriter(fh, list(mrows[0].keys()))
+            wr.writeheader()
+            wr.writerows(mrows)
+    summary = summarise(rows, latencies) if rows else dict(n_annotated=0, n_found=0, found_rate=None,
+                                                             latency_ms_median=round(float(np.median(latencies)), 2))
+    if mrows:
+        summary.update(n_mask_frames=len(mrows),
+                       mask_iou_median=round(float(np.median([r["mask_iou"] for r in mrows])), 4),
+                       boundary_err_px_median=round(float(np.nanmedian([r["boundary_err_px_mean"] for r in mrows])), 3))
     summary.update(backend=backend.name, name=name, camera=camera.source)
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     log(format_summary(summary))
@@ -153,6 +172,9 @@ def summarise(rows: list[dict], latencies: list[float]) -> dict:
 def format_summary(s: dict) -> str:
     lines = [f"{s.get('name', '?')}: found {s['n_found']}/{s['n_annotated']} shafts, "
              f"latency {s.get('latency_ms_median')} ms/frame"]
+    if s.get("n_mask_frames"):
+        lines.append(f"  masks ({s['n_mask_frames']} frames): IoU {s['mask_iou_median']}, "
+                     f"boundary error {s['boundary_err_px_median']} px")
     if s.get("n_found"):
         lines.append(f"  depth error |median| {s['depth_err_pct_median_abs']}%  p90 {s['depth_err_pct_p90_abs']}%  "
                      f"(signed median {s['depth_err_pct_median_signed']}%)")
@@ -174,7 +196,8 @@ def compare(bench: str | Path, log=print) -> list[dict]:
     rows.sort(key=lambda s: (s.get("depth_err_pct_p90_abs") is None, s.get("depth_err_pct_p90_abs", 0)))
     cols = [("name", "backend"), ("found_rate", "found"), ("depth_err_pct_median_abs", "|depth err| med %"),
             ("depth_err_pct_p90_abs", "p90 %"), ("bias_px_median", "bias px"), ("bias_px_spread_mad", "bias spread"),
-            ("depth_err_pct_bias_corrected_p90_abs", "p90 % bias-corr."), ("latency_ms_median", "ms/frame")]
+            ("depth_err_pct_bias_corrected_p90_abs", "p90 % bias-corr."), ("mask_iou_median", "mask IoU"),
+            ("boundary_err_px_median", "boundary px"), ("latency_ms_median", "ms/frame")]
     table = ["| " + " | ".join(c[1] for c in cols) + " |", "|" + "---|" * len(cols)]
     for s in rows:
         table.append("| " + " | ".join(str(s.get(c[0], "")) for c in cols) + " |")

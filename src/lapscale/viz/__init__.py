@@ -1,1 +1,4 @@
-"""Overlays (to be implemented): mask, shaft edges and axis, metric depth, uncertainty."""
+"""Overlays: metric depth, shaft edges, status (``lapscale viz``)."""
+from .overlay import colorize, draw_frame, render_run
+
+__all__ = ["colorize", "draw_frame", "render_run"]

@@ -142,6 +142,6 @@ def test_cli_run_with_config(bench, tmp_path):
     cfg = tmp_path / "c.yaml"
     cfg.write_text("tool:\n  edges:\n    ransac-tol-px: 1.0\n    min-span-px: 40\n")
     assert main(["--config", str(cfg), "segbench", "run", "--bench", str(bench), "--camera", str(cam),
-                 "--backend", "masks", "--masks-dir", str(bench / "masks_true"), "--name", "cli",
+                 "--seg-backend", "masks", "--masks-dir", str(bench / "masks_true"), "--name", "cli",
                  "--no-overlays"]) == 0
     assert json.loads((bench / "results" / "cli" / "summary.json").read_text())["found_rate"] == 1.0

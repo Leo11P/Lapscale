@@ -20,8 +20,9 @@ moge = [
     "torch>=2.1",
     "moge @ git+https://github.com/microsoft/MoGe.git",
 ]
-# SAM 3 is installed from its repository (Python >= 3.12, gated checkpoints): see tool/backends/sam3.py
+# SAM 3 and Depth Anything 3 are installed from their repositories (see docs/install.md)
 yolo = ["ultralytics>=8.3"]
+surgenet = ["torch>=2.1", "timm==1.0.13"]       # + a clone of github.com/TimJaspers0801/SurgeNet
 dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]

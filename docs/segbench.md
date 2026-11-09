@@ -10,8 +10,8 @@ the two shaft edges, not by Dice. One pixel of edge error moves the depth by abo
 |---|---|---|
 | `sam3` | wrapper ready, zero-shot | text prompts; gated checkpoints (facebook/sam3, facebook/sam3.1); masks upsampled from low resolution, so edges must be measured |
 | `masks` | ready | precomputed masks from any external model (e.g. a SurgeNetXL-based network trained elsewhere) |
-| `yolo` | wrapper ready | needs weights trained on surgical instruments (COCO weights do not know them) |
-| semantic net, SurgeNetXL backbone | not implemented | SurgeNetXL provides pretrained backbones (CaFormer); the decoder must be trained: only if the zero-shot result is not good enough |
+| `yolo` | wrapper ready | needs weights trained on surgical instruments (COCO weights do not know them): `segbench export-yolo` + `segtrain yolo` |
+| `surgenet` | backend + training ready | SurgeNetXL CaFormer-S18 backbone + FPN (authors' code); the decoder must be trained on your masks: `segtrain surgenet` |
 
 ## Protocol
 
@@ -23,9 +23,29 @@ the two shaft edges, not by Dice. One pixel of edge error moves the depth by abo
    the magnifier (top right, clicks inside it are sub-pixel). Frames without a measurable shaft: `x`.
    Annotate some frames twice on different days: the difference is the annotation noise floor.
 3. **Run** each backend, e.g.
-   `lapscale segbench run --bench bench/ --camera configs/camera/lap.yaml --backend sam3 --prompt "surgical instrument"`
+   `lapscale segbench run --bench bench/ --camera configs/camera/lap.yaml --seg-backend sam3 --prompt "surgical instrument"`
    Try several prompts (each is a separate run with `--name`).
 4. **Compare**: `lapscale segbench compare --bench bench/` writes `results/comparison.md`.
+
+## Ground-truth masks (optional)
+
+Needed only to fine-tune (YOLO-seg, SurgeNetXL) or to report mask IoU / boundary error next to the edge metrics.
+
+```bash
+lapscale segbench annotate-masks --bench bench/ --seg-backend sam3     # SAM 3 proposals, corrected by hand
+lapscale segbench export-yolo --bench bench/ --out yolo_ds/              # split by video
+lapscale segtrain yolo --data yolo_ds/data.yaml --model yolo26n-seg.pt
+lapscale segtrain surgenet --bench bench/ --out models/surgenet --surgenet-repo ../SurgeNet \
+    --pretrained weights/SurgeNetXL_checkpoint_epoch0050_teacher.pth
+lapscale segbench run --bench bench/ --camera cam.yaml --seg-backend surgenet --surgenet-checkpoint models/surgenet/best.pt \
+    --surgenet-repo ../SurgeNet
+```
+
+Editor: left drag paints the current instance, right drag erases, `p` polygon mode (SPACE fills, `e` toggles
+subtract), `[` `]` brush size, TAB next instance, `n` new, `d` delete, ENTER save, `x` no instrument, `b` back,
+`q` quit; with SAM 3 as proposer, a middle-button box adds the SAM 3 mask of that box. Use frames from
+different videos than the benchmark frames if the masks are for training, or the benchmark is no longer
+independent.
 
 ## Reading the results
 

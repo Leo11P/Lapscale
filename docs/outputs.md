@@ -42,3 +42,31 @@
 * `frames.csv`: `frame`, `latency_ms`, `fx_px`, `fy_px` (estimated focal, empty when given),
   `valid_fraction`, `depth_median`.
 * `<frame:06d>.npz`: `depth` (float16, network units, 0 where invalid), `valid` (bool), `K` (3x3 of the map).
+
+## Tool cache (`runs/<video>/tool/<tag>/`)
+* `frames.csv`: one row per instance: `status` (ok / rejected / none), `reason`, `depth_mid_mm`, `width_px`,
+  `rel_sd_random_pct`, `rel_sd_total_pct`, `bias_sensitivity_pct_per_px`, `n_samples`, `latency_ms`.
+* `<frame>.npz`: per valid instrument k: `rays_k` (normalised), `z_k` (mm), `edge_a_k`, `edge_b_k` (raw px),
+  `info_k` = [depth_mid_mm, rel_sd_total_pct].
+
+## Scale (`runs/<video>/scale/<depth tag>__<tool tag>/<variant>/`)
+* `frames.csv`: `a_raw`, `b_raw` (per-frame fit), `rel_residual_pct`, `span_ratio`, `fit_ok`, `reason`, `a`, `b`
+  (smoothed / held), `status` (fit / held / none), `native_ratio` (a / the network's claimed mm per unit).
+* `summary.json`: fitted / scaled frames, median a, frame-to-frame spread of a, native scale ratio.
+* Metric depth of a frame: `scale.run.metric_depth(run_dir, depth_tag, tool_tag, variant, frame)`.
+
+## Stream (`runs/<video>/stream_log.csv`)
+`frame`, `seg_ms`, `loop_ms`, `depth_frame` (frame of the depth map in use), `n_shafts`, `a`, `b`, `status`.
+
+## Depth benchmark (`<dbench>/`)
+* `images/`, `gt/<id>.npz` (`depth` mm, `valid`), `camera.yaml`, `manifest.json` (source, per-frame GT
+  valid fraction and median depth).
+* `results/<name>/per_frame.csv` (one row per frame and alignment), `summary.json` (medians per alignment),
+  `pred/<id>.npz`; `results/comparison.md`.
+* `eval/<name>/per_frame.csv` and `summary.json`: references `instrument`, `native`, `oracle`; errors per GT
+  distance band and per depth distance from the shaft.
+
+## Segmentation masks (`<bench>/masks_gt/`)
+`<frame>_<k>.png` (0/255 per instance), `index.json` (frame -> ok / empty). `segbench run` adds
+`per_frame_masks.csv` (IoU, boundary error) when masks exist. `export-yolo` writes `images/`, `labels/`,
+`data.yaml`.

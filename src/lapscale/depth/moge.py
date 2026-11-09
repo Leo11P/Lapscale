@@ -16,6 +16,8 @@ DEFAULT_CHECKPOINT = {"v2": "Ruicheng/moge-2-vitl", "v3": "Ruicheng/moge-3-vitl"
 
 
 class MoGeBackend:
+    output_kind = "depth"
+
     def __init__(self, version: str = "v3", checkpoint: str | None = None, device: str = "cuda",
                  fp16: bool = True, resolution_level: int = 9, num_tokens: int | None = None,
                  refine_steps: int = 3):
@@ -34,6 +36,7 @@ class MoGeBackend:
         self.version = version
         self.checkpoint = checkpoint or DEFAULT_CHECKPOINT[version]
         self.name = f"moge-{version}:{self.checkpoint}"
+        self.native_unit_mm = None if version == "v1" else 1000.0      # v2/v3 claim metres
         self.device = torch.device(device)
         self.model = MoGeModel.from_pretrained(self.checkpoint).to(self.device).eval()
         self.kw = dict(resolution_level=resolution_level, num_tokens=num_tokens, use_fp16=fp16)

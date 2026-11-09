@@ -25,7 +25,9 @@ def run_depth(video: str | Path, camera: Camera | None, backend: DepthBackend, r
     store.write_meta(dict(backend=backend.name, video=str(video), size=list(src.size),
                           camera=None if camera is None else camera.to_dict(),
                           K_view=None if view.K_view is None else view.K_view.tolist(),
-                          fov_x_deg=view.fov_x_deg, undistorted=view.maps is not None, config=config or {}))
+                          fov_x_deg=view.fov_x_deg, undistorted=view.maps is not None, config=config or {},
+                          output_kind=getattr(backend, "output_kind", "depth"),
+                          native_unit_mm=getattr(backend, "native_unit_mm", None)))
     indices = src.sample_indices() if indices is None else indices
     todo = [i for i in indices if not store.has(i)]
     log(f"depth [{backend.name}] on {Path(video).name}: {len(todo)} frames to do, "
@@ -34,6 +36,8 @@ def run_depth(video: str | Path, camera: Camera | None, backend: DepthBackend, r
     w, h = src.size
     for k, (i, frame) in enumerate(src.iter(todo), 1):
         img = view.apply(frame)
+        if hasattr(backend, "set_frame_id"):          # precomputed maps
+            backend.set_frame_id(f"{Path(video).stem}_{i:06d}")
         t0 = time.perf_counter()
         pred = backend.predict(img, fov_x_deg=view.fov_x_deg)
         ms = 1000 * (time.perf_counter() - t0)

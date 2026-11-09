@@ -15,23 +15,16 @@ calib:
     moge-version: v2
     n-frames: 20
 
-# Stages below: placeholders, filled in when implemented.
-depth:
-  backend: moge
-  moge-version: v3             # v3 offline (Linux/WSL2), v2 for real time
-  checkpoint: Ruicheng/moge-3-vitl
-  fp16: true
-  resolution-level: 9
-  refine-steps: 3
+# Stages 2-4 are configured on the command line (see `lapscale <stage> --help`); only the edge extractor
+# and calibration read this file. Recommended starting points:
+#   depth   offline: --depth-backend moge --moge-version v3 (Linux/WSL2); real time: v2, moge-2-vits-normal
+#   tool    --diameter-mm <measured>, --mc 100 (offline) / 0 (stream)
+#   scale   --max-rel-sd 5 --smooth-window 9
 
 tool:
-  backend: sam3
-  instruments: configs/instruments.yaml
   edges:                       # used by `segbench run --config`; all fields: EdgeConfig in tool/edges.py
     ransac-tol-px: 1.5
     min-span-px: 50
     max-edge-angle-deg: 25
     max-rms-px: 0.8
 
-scale:
-  variants: [scale_only, affine]

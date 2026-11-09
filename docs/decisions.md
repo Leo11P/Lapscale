@@ -84,3 +84,26 @@ Each entry: what, why, what would change it.
   and stored with each map (principal point at the centre).
 * The network output is treated as being in unknown units even when MoGe claims metres: the scale comes
   from the instrument (stage 4). MoGe's own metric scale is kept as a baseline to compare against.
+
+## Stage 4: scale, and the benchmarks
+* **Both scale models are always computed** (scale-only, affine) and compared by `eval`; the affine fit is
+  refused when the shaft spans less than 15% of depth (offset not identifiable). On the synthetic video the
+  scale-only variant gives 0.03% median error on the whole tissue, the affine one 0.17%.
+* **Gating** on the stage-3 uncertainty of the shaft depth (default 5%, with an assumed 1 px edge bias), on
+  the fit residual and on the number of samples; running median over time; frames without a valid fit hold
+  the nearest value up to 50 frames.
+* **Real time**: segmentation every frame, depth in a worker thread on the latest frame only, causal running
+  median of the scale. Every frame is displayed with the latest depth map times the current scale.
+* **The network's own metric scale is kept as a reference** (`native`), never used: the scale stage reports by
+  how much it differs from the instrument scale; `eval` shows both against ground truth.
+* **Depth benchmark images are the rectified left frames** of the stereo pair: exact pinhole cameras, ground
+  truth on the same grid, no reprojection. Ground truth from SGBM with left-right consistency, saturated pixels
+  removed: 0.1% median error on a synthetic pair.
+* **Main depth criterion = scale-aligned error** (shape), because the scale comes from the instrument; affine
+  and native are reported for context.
+* **Inverse-depth networks** are supported in the scale fit and in the benchmark (alignment in inverse space).
+* **SurgeNetXL**: the authors' MetaFormerFPN, backbone loaded from the local teacher checkpoint with an explicit
+  count of matched tensors (their loader uses strict=False and would hide a wrong file); BCE + Dice, model
+  selection on validation IoU, validation split BY VIDEO (also in `export-yolo`).
+* **torch is never imported by the core**: all networks are optional backends; `lapscale check` verifies them on
+  the target machine.
