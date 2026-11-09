@@ -1,0 +1,7 @@
+# Shaft diameters in mm. Measure them (calliper) when possible: the diameter is the ruler of the whole
+# method, an error here is a scale error one to one.
+default: 5.0
+instruments:
+  laparoscopic_5mm: 5.0
+  laparoscopic_10mm: 10.0
+  davinci_8mm: 8.0

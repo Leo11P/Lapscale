@@ -1,0 +1,32 @@
+# Per-stage defaults. Precedence: command-line flag > this file (--config) > built-in default.
+calib:
+  board:
+    target: charuco            # charuco (recommended: partial views count) | checkerboard
+    cols: 11                   # charuco: squares per row; checkerboard: INNER corners per row
+    rows: 8
+    square-mm: null            # MEASURED side of a printed square (never the nominal value)
+    marker-mm: null
+    dictionary: DICT_5X5_100
+    dist-model: standard       # k1k2 | standard | rational
+    max-views: 60
+    max-candidates: 600
+    holdout-fraction: 0.2
+  moge:
+    moge-version: v2
+    n-frames: 20
+
+# Stages below: placeholders, filled in when implemented.
+depth:
+  backend: moge
+  moge-version: v3             # v3 offline (Linux/WSL2), v2 for real time
+  checkpoint: Ruicheng/moge-3-vitl
+  fp16: true
+  resolution-level: 9
+  refine-steps: 3
+
+tool:
+  backend: sam3
+  instruments: configs/instruments.yaml
+
+scale:
+  variants: [scale_only, affine]

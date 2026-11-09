@@ -1,0 +1,14 @@
+# Bypass: camera written by hand from intrinsics you already have.
+# K and image_size MUST refer to the same resolution; dist is OpenCV [k1, k2, p1, p2, k3] (or [] if unknown).
+schema: lapscale.camera/1
+source: manual
+created: '2026-11-09T00:00:00+00:00'
+image_size: [1920, 1080]
+K:
+- [1100.0, 0.0, 959.5]
+- [0.0, 1100.0, 539.5]
+- [0.0, 0.0, 1.0]
+dist: [0.0, 0.0, 0.0, 0.0, 0.0]
+optical_circle: null        # fill with: lapscale calib mask --camera this.yaml --video your.mp4
+quality: {}
+notes: example values, replace them

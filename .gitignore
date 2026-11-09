@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+# data and run outputs never go in git
+data/
+runs/
+cache/
+*.mp4
+*.avi
+*.mov
+*.pt
+*.pth
+*.ckpt
+# camera files are small and versioned on purpose, except scratch ones
+configs/camera/scratch_*.yaml
