@@ -35,3 +35,10 @@
   `depth_err_pct_median_signed`, `bias_px_median`, `bias_px_spread_mad`, `offset_sd_px_median`,
   `angle_err_deg_median`, `depth_err_pct_bias_corrected_*`, `latency_ms_median`, `not_found_reasons`.
 * `results/<name>/overlays/<frame>.png`; `results/comparison.md`.
+
+## Depth cache (`runs/<video>/depth/<tag>/`)
+* `meta.json`: `backend`, `video`, `size`, `camera` (the camera file content), `K_view` (intrinsics of the
+  undistorted view; null without calibration), `fov_x_deg`, `undistorted`, `config`.
+* `frames.csv`: `frame`, `latency_ms`, `fx_px`, `fy_px` (estimated focal, empty when given),
+  `valid_fraction`, `depth_median`.
+* `<frame:06d>.npz`: `depth` (float16, network units, 0 where invalid), `valid` (bool), `K` (3x3 of the map).

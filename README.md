@@ -8,7 +8,7 @@ Geometric Modeling* (MonoEndoDepth), with MoGe in place of Monodepth2.
 | Stage | Command | Status |
 |---|---|---|
 | 1 camera intrinsics | `lapscale calib …` | **done** |
-| 2 depth (MoGe) | `lapscale depth` | backend wrapper only |
+| 2 depth (MoGe) | `lapscale depth` | **done** (cache, undistortion, ray sampling); MoGe not run in CI |
 | 3 instrument geometry | `lapscale tool` | geometry, uncertainty, mask -> edges done (Python API) |
 | 3 segmentation benchmark | `lapscale segbench …` | **done**; SAM 3 / YOLO / external masks |
 | 4 scale recovery | `lapscale scale` | planned |
@@ -75,6 +75,15 @@ unc = shaft_uncertainty(edge_a_px, edge_b_px, cam, 5.0, point_sd_px=0.5, bias_sd
 unc.rel_sd_total_pct, unc.bias_sensitivity_pct_per_px
 ```
 
+## Stage 2: depth with MoGe
+
+```bash
+lapscale depth --video surgery.mp4 --camera configs/camera/lap.yaml --moge-version v3 --stride 5
+# -> runs/surgery/depth/<tag>/: one depth map per processed frame, resumable
+```
+
+How the stages connect (and what is still missing to run a whole video): `docs/architecture.md`.
+
 ## Choosing the segmentation network
 
 ```bash
@@ -94,7 +103,7 @@ src/lapscale/
   camera.py         Camera model + YAML I/O (the contract between stage 1 and the rest)
   io/               frame sources (video / image folder), run cache
   calib/            targets, optical disc, calibration, import, MoGe fallback, report
-  depth/            DepthBackend protocol, MoGe v2/v3
+  depth/            DepthBackend protocol, MoGe v2/v3, undistorted view, per-video run
   tool/             shaft geometry and uncertainty, mask -> shaft edges, segmentation backends
   segbench/         benchmark of segmentation by shaft edge accuracy (docs/segbench.md)
   scale/ pipeline/ eval/ viz/     next stages

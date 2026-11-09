@@ -35,12 +35,14 @@ robotic prostatectomy).
 
 ## Status
 
-- Done: skeleton; `camera.py`; stage 1 `calib` (board / import / MoGe fallback); MoGe wrapper in
-  `depth/` (not run here: no torch/weights); `tool/geometry.py`, `tool/uncertainty.py`, `tool/edges.py`
+- Done: skeleton; `camera.py`; stage 1 `calib` (board / import / MoGe fallback); stage 2 `lapscale depth`
+  (undistorted view, MoGe v2/v3 backend, per-frame cache, ray sampling = bridge to the geometry; MoGe not
+  run here: no torch/weights); `tool/geometry.py`, `tool/uncertainty.py`, `tool/edges.py`
   (mask -> sub-pixel shaft edges); segmentation backends `sam3` / `yolo` / `masks` (sam3 and yolo not run
-  here: no GPU/weights); `segbench` (sample, annotate GUI, run, compare). 44 synthetic tests.
-- Not done: commands `lapscale depth|tool|scale|run|eval|viz`; the benchmark on real IEO frames.
-- Next: Leonardo annotates 30-50 IEO frames and runs SAM 3 (`docs/segbench.md`); then stage 2 depth.
+  here: no GPU/weights); `segbench` (sample, annotate GUI, run, compare). 51 synthetic tests.
+- Not done: stage 4 `scale`; `lapscale tool` over a video; `run`, `eval`, `viz`; real-data runs
+  (segbench on IEO frames, MoGe on IEO videos). How it all connects: `docs/architecture.md`.
+- Next: stage 4 + `lapscale tool` over a video, which join everything.
 
 ## Decisions already taken (do not reopen without a reason)
 

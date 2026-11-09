@@ -24,4 +24,4 @@ def test_config_defaults(tmp_path):
 
 
 def test_unimplemented_stage():
-    assert main(["depth"]) == 2
+    assert main(["scale"]) == 2

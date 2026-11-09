@@ -69,3 +69,18 @@ Each entry: what, why, what would change it.
 * **SAM 3 zero-shot first** (no training data needed); `masks` backend so any external model can be
   benchmarked; `yolo` wrapper for a fine-tuned YOLO-seg. A SurgeNetXL-based network is implemented only
   if the benchmark shows that zero-shot is not enough.
+
+## Stage 2: depth
+* **Frames are undistorted before the network**, into a pinhole view of the same size that keeps the
+  calibrated K (same resolution at the centre). Its FOV is passed to MoGe (`fov_x`), so the network does
+  not estimate it. The optical-disc mask is undistorted with the same maps; pixels outside it are black.
+* **The depth map is addressed by normalised rays**, the same coordinates as the shaft geometry
+  (`DepthFrame.sample`). Bilinear sampling, NaN if any neighbour is invalid: no blending across the
+  instrument boundary or the rim. Tested end to end with a fake backend on a tilted plane: rays from raw
+  pixels recover the plane depth within 0.2% (float16 storage + interpolation).
+* **Cache per frame** (`runs/<video>/depth/<tag>/`, float16 compressed, ~0.05% relative precision),
+  resumable; a different configuration under the same tag is refused instead of mixing results.
+* **No calibration (`--camera moge`)**: no undistortion, focal length estimated per frame by the backend
+  and stored with each map (principal point at the centre).
+* The network output is treated as being in unknown units even when MoGe claims metres: the scale comes
+  from the instrument (stage 4). MoGe's own metric scale is kept as a baseline to compare against.

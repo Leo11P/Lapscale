@@ -120,13 +120,17 @@ class Camera:
                       (self.notes + f" | rescaled from {w0}x{h0}").strip(" |"), self.created)
 
     # ------------------------------------------------------------------ undistortion
-    def undistort_maps(self, alpha: float = 0.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def undistort_maps(self, alpha: float | None = 0.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Maps to an undistorted pinhole image of the same size, and its new K.
 
-        Downstream geometry (MoGe, the cylinder model) assumes a pinhole camera, so frames are
-        undistorted once, here, with this new K.
+        ``alpha`` as in cv2.getOptimalNewCameraMatrix (0: crop to valid pixels, 1: keep every source
+        pixel); ``None`` keeps K itself (same scale at the centre, the periphery of a barrel-distorted
+        image is pushed outwards).
         """
-        newK, _ = cv2.getOptimalNewCameraMatrix(self.K, self.dist, self.image_size, alpha, self.image_size)
+        if alpha is None:
+            newK = self.K.copy()
+        else:
+            newK, _ = cv2.getOptimalNewCameraMatrix(self.K, self.dist, self.image_size, alpha, self.image_size)
         m1, m2 = cv2.initUndistortRectifyMap(self.K, self.dist, None, newK, self.image_size, cv2.CV_32FC1)
         return m1, m2, newK
 

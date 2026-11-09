@@ -123,8 +123,26 @@ def build_parser() -> argparse.ArgumentParser:
     gc = gs.add_parser("compare", help="table of all evaluated backends")
     gc.add_argument("--bench", required=True)
 
+    # ------------------------------------------------------------------ depth
+    d = sub.add_parser("depth", help="stage 2: per-frame depth with MoGe, cached in the run folder")
+    d.add_argument("--video", required=True)
+    d.add_argument("--camera", required=True, help="camera YAML, or 'moge' (no calibration: focal estimated)")
+    d.add_argument("--run-dir", default=None, help="default: runs/<video stem>")
+    d.add_argument("--tag", default=None, help="cache name (default: backend name); change it for a new config")
+    d.add_argument("--moge-version", choices=["v2", "v3"], default="v3")
+    d.add_argument("--checkpoint", default=None, help="default: Ruicheng/moge-2-vitl (v2), Ruicheng/moge-3-vitl (v3)")
+    d.add_argument("--device", default="cuda")
+    d.add_argument("--no-fp16", action="store_true")
+    d.add_argument("--resolution-level", type=int, default=9)
+    d.add_argument("--num-tokens", type=int, default=None)
+    d.add_argument("--refine-steps", type=int, default=3, help="v3 only")
+    d.add_argument("--stride", type=int, default=None, help="every Nth frame")
+    d.add_argument("--start", type=int, default=0)
+    d.add_argument("--stop", type=int, default=None)
+    d.add_argument("--max-frames", type=int, default=None, help="evenly spread in [start, stop)")
+
     # ------------------------------------------------------------------ later stages
-    for name, text in [("depth", "stage 2: MoGe depth"), ("tool", "stage 3: instrument geometry"),
+    for name, text in [("tool", "stage 3: instrument geometry"),
                        ("scale", "stage 4: scale recovery"), ("run", "all stages on a video (offline / stream)"),
                        ("eval", "evaluation against stereo ground truth"), ("viz", "overlays")]:
         q = sub.add_parser(name, help=f"{text} (not implemented yet)")
@@ -144,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.stage == "segbench":
         return _segbench(a, cfg)
+    if a.stage == "depth":
+        return _depth(a)
     if a.stage != "calib":
         print(f"'{a.stage}' is not implemented yet (see docs/roadmap.md)", file=sys.stderr)
         return 2
@@ -174,6 +194,26 @@ def main(argv: list[str] | None = None) -> int:
         dpi_note = (f"print so that one square measures exactly {spec.square_mm} mm, then MEASURE it: "
                     "the measured value is what goes in --square-mm")
         print(f"saved {a.out} ({img.shape[1]}x{img.shape[0]} px). {dpi_note}")
+    return 0
+
+
+def _depth(a) -> int:
+    from pathlib import Path
+
+    from .camera import resolve_camera
+    from .depth import make_backend, run_depth
+    from .io.video import FrameSource
+    src = FrameSource(a.video)
+    camera = resolve_camera(a.camera, src.size)
+    if a.max_frames:
+        idx = src.sample_indices(n=a.max_frames, start=a.start, stop=a.stop)
+    else:
+        idx = src.sample_indices(stride=a.stride or 1, start=a.start, stop=a.stop)
+    kw = dict(version=a.moge_version, checkpoint=a.checkpoint, device=a.device, fp16=not a.no_fp16,
+              resolution_level=a.resolution_level, num_tokens=a.num_tokens, refine_steps=a.refine_steps)
+    backend = make_backend("moge", **kw)
+    run_dir = a.run_dir or str(Path("runs") / Path(a.video).stem)
+    run_depth(a.video, camera, backend, run_dir, a.tag, idx, config=kw)
     return 0
 
 
